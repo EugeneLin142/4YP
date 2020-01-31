@@ -5,6 +5,9 @@ import warnings
 from functions import *
 warnings.filterwarnings("ignore")
 
+# I will work with only numpy in main.py for both simplicity's sake, and because of pandas
+# handling memory strangely
+
 # for reproducibility
 np.random.seed(123)
 
@@ -16,44 +19,41 @@ np.set_printoptions(threshold=sys.maxsize)
 # for unique identifier because of inode reuse
 feat_cols = ["inode", "pid", "ppid", "uid", "euid", "gid", "egid"]
 
-# import (a single file at the moment) into numpy array
-datanp = np.genfromtxt('./ima/20200116.dat',
-                       dtype=None,
-                       delimiter=' ',
-                       usecols=(5, 7, 8, 9, 10, 11, 12))
-
-# convert data to pandas dataframe
-datapd = pd.DataFrame(data=datanp,
-                      columns=feat_cols)
+# import all .dat files from ./ima/ into numpy array
+data = None
+datanp = import_ima(data)
 
 # reduce dimensions with high correlation filter
 # drawmap=1 to see heatmap for justification
-datapd, red_cols = high_corr_filter(df=datapd,
+datanp, red_cols = high_corr_filter(datanp=datanp, feat_cols=feat_cols,
                                     drawmap=0)
-print("datapd.shape", datapd.shape)
+print("datanp.shape", datanp.shape)
 
-# reduce dimensions using tSNE (to 2 dimensions)
-datatsne = func_tsne(df=datapd,
+# reduce dimensions using UMAP (to 2 dimensions), return numpy
+dataumap = func_umap(datanp=datanp, feat_cols=red_cols,
+                     drawplot=1)
+print("dataumap.shape", dataumap.shape)
+print("datanp.shape", datanp.shape)
+
+# reduce dimensions using tSNE (to 2 dimensions), return numpy
+datatsne = func_tsne(datanp=datanp, feat_cols=red_cols,
                      drawplot=0)
-print("datatsne.shape", datatsne.shape)  # looks like pandas is doing something spooky, maybe do EVERYTHING in numpy and convert to pandas in-function?
-print("datapd.shape", datapd.shape)
+print("datatsne.shape", datatsne.shape)
+print("datanp.shape", datanp.shape)
 
-# convert dataframe back to numpy and perform 2D DBSCAN
-datanp = datatsne.to_numpy()
-func_dbscan(data=datanp[:, [5, 6]],
+# perform 2D DBSCAN (TSNE)
+func_dbscan(data=datatsne[:, [5, 6]],
             eps=0.4,
             min_samples=7,
             drawplot=0)
 
-print("datapd.shape", datapd.shape)
-# reduce dimensions using PCA
-data_pca = func_pca(df=datapd,
+# reduce dimensions using PCA, return numpy
+data_pca = func_pca(datanp=datanp, feat_cols=red_cols,
                     drawplot=0)
-print("data_pca.shape", data_pca.shape)  # WHY 10 COLUMNS??????????????????
+print("data_pca.shape", data_pca.shape)
 
-# convert dataframe back to numpy and perform 2D DBSCAN  (((PCA)))
-data_pca_for_dbscan = data_pca.to_numpy()
-func_dbscan(data=data_pca_for_dbscan[:, [5, 6]],
+# perform 2D DBSCAN  (PCA)
+func_dbscan(data=data_pca[:, [5, 6]],
             eps=0.4,
             min_samples=7,
             drawplot=0)

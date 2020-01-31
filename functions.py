@@ -7,12 +7,58 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix
 
 
-def high_corr_filter(df, drawmap):
+def import_ima(data):
+    for filename in os.listdir('./ima/'):
+        if filename.endswith(".dat"): # Make sure we're iterating over .dat IMA quotes
+            filename = './ima/' + filename
+            # print(os.path.join(directory, filename))
+            print(filename)
+            if data is None:
+                data = np.genfromtxt(filename,
+                       dtype=None,
+                       delimiter=' ',
+                       usecols=(5, 7, 8, 9, 10, 11, 12))
+            else:
+                datanew = np.genfromtxt(filename,
+                                        dtype=None,
+                                        delimiter=' ',
+                                        usecols=(5, 7, 8, 9, 10, 11, 12))
+                try:
+                    data = np.concatenate((data, datanew), axis=0)
+                except: # for some reason some quotes are read in as 0-dimensional
+                    for array in datanew: # convert each row to 7-dimensions & concatenate 1 by 1
+                        row = np.array([[array[0]], [array[1]], [array[2]],
+                                        [array[3]], [array[4]], [array[5]],
+                                        [array[6]]])
+
+                        # print("before,", row)
+                        row = row.reshape(1, 7)
+                        # print("after,", row)
+                        # print("check if match...", data[0])
+                        # input("check now")
+                        # print(data.shape)
+                        # print(row.shape)
+                        ###
+                        # above 'print' comments to confirm reshape works properly
+                        data = np.concatenate((data, row), axis=0)
+
+                        # !!!
+                        # NOTE, WE ASSUME THAT THE first DAY IS NOT 0-DIMENSIONAL !!
+        else:           # !!!
+            continue
+        print("next...")
+    return data
+
+
+def high_corr_filter(datanp, feat_cols, drawmap):
+
+    df = pd.DataFrame(data=datanp, columns=feat_cols)
 
     # initialize label encoder
     label_encoder = LabelEncoder()
@@ -38,14 +84,17 @@ def high_corr_filter(df, drawmap):
 
     # only present representative columns & return them
     df = df[selected_columns]
-    return df, selected_columns
+    datanp = df.to_numpy()
+
+    return datanp, selected_columns
 
 
 from sklearn.decomposition import PCA
 
 
-def func_pca(df, drawplot):
+def func_pca(datanp, feat_cols, drawplot):
     # initialize
+    df = pd.DataFrame(data=datanp, columns=feat_cols)
     rndperm = np.random.permutation(df.shape[0])
     pca = PCA(n_components=3)
     # can adjust how many components, but will have to edit
@@ -75,14 +124,16 @@ def func_pca(df, drawplot):
         print("showing plot...")
         plt.show()
 
-    return df
+    datanp = df.to_numpy()
+    return datanp
 
 
 from sklearn.manifold import TSNE
 
 
-def func_tsne(df, drawplot):
+def func_tsne(datanp, feat_cols, drawplot):
     # initialize
+    df = pd.DataFrame(data=datanp, columns=feat_cols)
     rndperm = np.random.permutation(df.shape[0])
     time_start = time.time()
     tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
@@ -103,7 +154,40 @@ def func_tsne(df, drawplot):
         )
         print("showing tSNE plot...")
         plt.show()
-    return df
+
+    datanp = df.to_numpy()
+    return datanp
+
+
+import umap
+
+
+def func_umap(datanp, feat_cols, drawplot):
+    # initialize
+    df = pd.DataFrame(data=datanp, columns=feat_cols)
+    rndperm = np.random.permutation(df.shape[0])
+    time_start = time.time()
+    reducer = umap.UMAP()
+    embedding = reducer.fit_transform(df)
+    print('UMAP done! Time elapsed: {} seconds'.format(time.time() - time_start))
+    df['UMAP-2d-one'] = embedding[:, 0]
+    df['UMAP-2d-two'] = embedding[:, 1]
+
+    if drawplot == 1:
+        plt.figure(figsize=(16, 10))
+        sns.scatterplot(
+            x="UMAP-2d-one", y="UMAP-2d-two",
+            # hue="uid",
+            # palette=sns.color_palette(),
+            data=df,
+            legend="full",
+            alpha=0.3
+        )
+        print("showing UMAP plot...")
+        plt.show()
+
+    datanp = df.to_numpy()
+    return datanp
 
 
 from sklearn.cluster import DBSCAN

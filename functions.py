@@ -23,42 +23,51 @@ def import_ima(data):
                 data = np.genfromtxt(filename,
                        dtype=None,
                        delimiter=' ',
-                       usecols=(5, 7, 8, 9, 10, 11, 12))
+                       usecols=(4, 5, 7, 8, 9, 10, 11, 12))
             else:
                 datanew = np.genfromtxt(filename,
                                         dtype=None,
                                         delimiter=' ',
-                                        usecols=(5, 7, 8, 9, 10, 11, 12))
+                                        usecols=(4, 5, 7, 8, 9, 10, 11, 12))
                 try:
                     data = np.concatenate((data, datanew), axis=0)
-                except: # for some reason some quotes are read in as 0-dimensional
-                    for array in datanew: # convert each row to 7-dimensions & concatenate 1 by 1
-                        row = np.array([[array[0]], [array[1]], [array[2]],
-                                        [array[3]], [array[4]], [array[5]],
-                                        [array[6]]])
-
-                        # print("before,", row)
-                        row = row.reshape(1, 7)
-                        # print("after,", row)
-                        # print("check if match...", data[0])
-                        # input("check now")
+                except:
+                    print(filename, " is likely not encoded properly, skipping this quote...")
+                    pass
+                        # for some reason some quotes are read in as 0-dimensional
+                        # I believe because the data in the quotes aren't encoded properly
+                        # and numpy is taking them as bytes literal - i will ignore for now...
+                    # for array in datanew: # convert each row to 8-dimensions & concatenate 1 by 1
+                    #     # print("array0", array[0].decode('utf-8'))
+                    #     rowlabel = np.array([[array[0].decode('utf-8')]])
+                    #     row = np.array([[array[1]], [array[2]],
+                    #                     [array[3]], [array[4]], [array[5]],
+                    #                     [array[6]], [array[7]] ])
+                    #     print(rowlabel.shape, row.astype(int).shape)
+                    #     row = np.concatenate((rowlabel, row.astype(int)), axis=0)
+                    #     print("before,", row)
+                    #     row = row.reshape(row.shape[1], row.shape[0])
+                    #     print("after,", row)
+                    #     print("check if match...", data[0])
+                    #     input("check now")
                         # print(data.shape)
                         # print(row.shape)
                         ###
                         # above 'print' comments to confirm reshape works properly
-                        data = np.concatenate((data, row), axis=0)
+                        # data = np.concatenate((data, row), axis=0)
 
                         # !!!
                         # NOTE, WE ASSUME THAT THE first DAY IS NOT 0-DIMENSIONAL !!
-        else:           # !!!
+                        # !!!
+        else:
             continue
         print("next...")
     return data
 
 
 def high_corr_filter(datanp, feat_cols, drawmap):
-
-    df = pd.DataFrame(data=datanp, columns=feat_cols)
+    filenames = np.array(datanp[:, 0])
+    df = pd.DataFrame(data=datanp[:, 1:7], columns=feat_cols)
 
     # initialize label encoder
     label_encoder = LabelEncoder()
@@ -84,7 +93,7 @@ def high_corr_filter(datanp, feat_cols, drawmap):
 
     # only present representative columns & return them
     df = df[selected_columns]
-    datanp = df.to_numpy()
+    datanp = np.concatenate((filenames, df.to_numpy()), axis=1)
 
     return datanp, selected_columns
 

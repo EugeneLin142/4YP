@@ -6,12 +6,77 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import LabelEncoder
 import os
+from mpl_toolkits.mplot3d import Axes3D as ax
+
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix
 
+
+def plot_it(data, n_components, pd_or_np, dimres_method):
+    if pd_or_np == "pd":
+        x = dimres_method + "-one"
+        y = dimres_method + "-two"
+        z = dimres_method + "-three"
+        if n_components == 2:
+            plt.figure(figsize=(16, 10))
+            sns.scatterplot(
+                            x=x, y=y,
+                            # hue="uid",
+                            # palette=sns.color_palette(),
+                            data=data,
+                            legend="full",
+                            alpha=0.3
+                            )
+
+        if n_components == 3:
+            plt.figure(figsize=(16, 10))
+            sanD_plot = plt.figure().gca(projection='3d')
+            sanD_plot.scatter(data[x], data[y], data[z])
+            sanD_plot.set_xlabel(x)
+            sanD_plot.set_ylabel(y)
+            sanD_plot.set_zlabel(z)
+            plt.show()
+
+            plt.figure(figsize=(16, 10))
+            sns.scatterplot(
+                x=x, y=y,
+                # hue="uid",
+                # palette=sns.color_palette(),
+                data=data,
+                legend="full",
+                alpha=0.3
+            )
+            plt.show()
+
+            plt.figure(figsize=(16, 10))
+            sns.scatterplot(
+                x=x, y=z,
+                # hue="uid",
+                # palette=sns.color_palette(),
+                data=data,
+                legend="full",
+                alpha=0.3
+            )
+            plt.show()
+
+            plt.figure(figsize=(16, 10))
+            sns.scatterplot(
+                x=y, y=z,
+                # hue="uid",
+                # palette=sns.color_palette(),
+                data=data,
+                legend="full",
+                alpha=0.3
+            )
+            plt.show()
+
+    print("showing ", dimres_method, " plot...")
+
+    if pd_or_np == "np":
+        print("uncompleted code lol")
 
 def import_ima(data):
     for filename in os.listdir('./ima/'):
@@ -24,36 +89,60 @@ def import_ima(data):
                        dtype=None,
                        delimiter=' ',
                        usecols=(5, 7, 8, 9, 10, 11, 12))
+                filepaths = np.genfromtxt(filename,
+                                          dtype=None,
+                                          delimiter=' ',
+                                          usecols=(4))
             else:
                 datanew = np.genfromtxt(filename,
                                         dtype=None,
                                         delimiter=' ',
                                         usecols=(5, 7, 8, 9, 10, 11, 12))
+                filepathsnew = np.genfromtxt(filename,
+                                          dtype=None,
+                                          delimiter=' ',
+                                          usecols=(4))
                 try:
                     data = np.concatenate((data, datanew), axis=0)
-                except: # for some reason some quotes are read in as 0-dimensional
-                    for array in datanew: # convert each row to 7-dimensions & concatenate 1 by 1
-                        row = np.array([[array[0]], [array[1]], [array[2]],
-                                        [array[3]], [array[4]], [array[5]],
-                                        [array[6]]])
-
-                        # print("before,", row)
-                        row = row.reshape(1, 7)
-                        # print("after,", row)
-                        # print("check if match...", data[0])
-                        # input("check now")
+                    filepaths = np.concatenate((filepaths, filepathsnew), axis=0)
+                except:
+                    print(filename, " is likely not encoded properly, skipping this quote...")
+                    pass
+                        # for some reason some quotes are read in as 0-dimensional
+                        # I believe because the data in the quotes aren't encoded properly
+                        # and numpy is taking them as bytes literal - i will ignore for now...
+                    # for array in datanew: # convert each row to 8-dimensions & concatenate 1 by 1
+                    #     # print("array0", array[0].decode('utf-8'))
+                    #     rowlabel = np.array([[array[0].decode('utf-8')]])
+                    #     row = np.array([[array[1]], [array[2]],
+                    #                     [array[3]], [array[4]], [array[5]],
+                    #                     [array[6]], [array[7]] ])
+                    #     print(rowlabel.shape, row.astype(int).shape)
+                    #     row = np.concatenate((rowlabel, row.astype(int)), axis=0)
+                    #     print("before,", row)
+                    #     row = row.reshape(row.shape[1], row.shape[0])
+                    #     print("after,", row)
+                    #     print("check if match...", data[0])
+                    #     input("check now")
                         # print(data.shape)
                         # print(row.shape)
                         ###
                         # above 'print' comments to confirm reshape works properly
-                        data = np.concatenate((data, row), axis=0)
+                        # data = np.concatenate((data, row), axis=0)
 
                         # !!!
                         # NOTE, WE ASSUME THAT THE first DAY IS NOT 0-DIMENSIONAL !!
-        else:           # !!!
+                        # !!!
+        else:
             continue
-        print("next...")
-    return data
+        print("importing next...")
+
+    if data is None:
+        print("No IMA measurements found, please put .dat or .csv files into ./ima/")
+    else:
+        print("All IMA measurements in ./ima/ imported successfully.")
+
+    return data, filepaths
 
 
 def high_corr_filter(datanp, feat_cols, drawmap):
@@ -93,6 +182,7 @@ from sklearn.decomposition import PCA
 
 
 def func_pca(datanp, feat_cols, drawplot):
+    np.random.seed(123)
     # initialize
     df = pd.DataFrame(data=datanp, columns=feat_cols)
     rndperm = np.random.permutation(df.shape[0])
@@ -131,29 +221,28 @@ def func_pca(datanp, feat_cols, drawplot):
 from sklearn.manifold import TSNE
 
 
-def func_tsne(datanp, feat_cols, drawplot):
+def func_tsne(datanp, feat_cols, drawplot, n_components):
+    np.random.seed(123)
     # initialize
     df = pd.DataFrame(data=datanp, columns=feat_cols)
     rndperm = np.random.permutation(df.shape[0])
     time_start = time.time()
-    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
+    tsne = TSNE(n_components=n_components, verbose=1, perplexity=40, n_iter=300)
     tsne_results = tsne.fit_transform(df)
     print('t-SNE done! Time elapsed: {} seconds'.format(time.time() - time_start))
-    df['tsne-2d-one'] = tsne_results[:, 0]
-    df['tsne-2d-two'] = tsne_results[:, 1]
+    df['tsne-one'] = tsne_results[:, 0]
+    df['tsne-two'] = tsne_results[:, 1]
+    try:
+        df['tsne-three'] = tsne_results[:, 2]
+        print("tsne done in 3 dimensions")
+    except:
+        print("tsne done in 2 dimensions")
 
     if drawplot == 1:
-        plt.figure(figsize=(16, 10))
-        sns.scatterplot(
-            x="tsne-2d-one", y="tsne-2d-two",
-            # hue="uid",
-            # palette=sns.color_palette(),
-            data=df,
-            legend="full",
-            alpha=0.3
-        )
-        print("showing tSNE plot...")
-        plt.show()
+        plot_it(data=df,
+                n_components=n_components,
+                pd_or_np="pd",
+                dimres_method="tsne")
 
     datanp = df.to_numpy()
     return datanp
@@ -162,29 +251,29 @@ def func_tsne(datanp, feat_cols, drawplot):
 import umap
 
 
-def func_umap(datanp, feat_cols, drawplot):
+def func_umap(datanp, feat_cols, drawplot, n_components):
+    np.random.seed(123)
     # initialize
     df = pd.DataFrame(data=datanp, columns=feat_cols)
     rndperm = np.random.permutation(df.shape[0])
     time_start = time.time()
-    reducer = umap.UMAP()
+    reducer = umap.UMAP(n_components=n_components)
     embedding = reducer.fit_transform(df)
     print('UMAP done! Time elapsed: {} seconds'.format(time.time() - time_start))
-    df['UMAP-2d-one'] = embedding[:, 0]
-    df['UMAP-2d-two'] = embedding[:, 1]
+    df['umap-one'] = embedding[:, 0]
+    df['umap-two'] = embedding[:, 1]
+
+    try:
+        df['umap-three'] = embedding[:, 2]
+        print("umap done in 3 dimensions")
+    except:
+        print("umap done in 2 dimensions")
 
     if drawplot == 1:
-        plt.figure(figsize=(16, 10))
-        sns.scatterplot(
-            x="UMAP-2d-one", y="UMAP-2d-two",
-            # hue="uid",
-            # palette=sns.color_palette(),
-            data=df,
-            legend="full",
-            alpha=0.3
-        )
-        print("showing UMAP plot...")
-        plt.show()
+        plot_it(data=df,
+                n_components=n_components,
+                pd_or_np="pd",
+                dimres_method="umap")
 
     datanp = df.to_numpy()
     return datanp
@@ -242,3 +331,34 @@ def func_dbscan(data, eps, min_samples, drawplot):
 
         plt.title('Estimated number of clusters: %d' % n_clusters_)
         plt.show()
+
+    # print(data.shape)
+    # print(labels.shape)
+    df = pd.DataFrame(data=data, columns=["red-1", "red-2"])
+    df["clusters"] = labels
+    data = df.to_numpy()
+
+    return data #3rd column is labels
+
+
+from IPython.core.display import display, HTML
+
+
+def explore_cluster(datanp, dataclust, cols, filepaths):
+    df = pd.DataFrame(data=datanp, columns=cols)
+    # df["comp-1"] = dataclust[:, 0]
+    # df["comp-2"] = dataclust[:, 1]
+    df_display = pd.DataFrame()
+    df_display["inode"] = df["inode"]
+    df_display["pid"] = df["pid"]
+    df_display["filepaths"] = filepaths
+    df_display["cluster"] = dataclust[:, 2]
+
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    # pd.set_option('display.max_colwidth', -1)
+
+    df_display = df_display.sort_values(by=['cluster', "inode", "pid"])
+    display(HTML(df_display.to_html()))
+    # print(datanp[datanp[:, 7].argsort()])

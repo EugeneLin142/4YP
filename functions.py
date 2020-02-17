@@ -15,11 +15,14 @@ from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix
 
 
-def plot_it(data, n_components, pd_or_np, dimres_method):
+def plot_it(n_components, pd_or_np, last_process, data = None,
+            db_labels = None, db_core_samples_mask = None,
+            db_n_clusters = None):
     if pd_or_np == "pd":
-        x = dimres_method + "-one"
-        y = dimres_method + "-two"
-        z = dimres_method + "-three"
+        x = last_process + "-one"
+        y = last_process + "-two"
+        z = last_process + "-three"
+
         if n_components == 2:
             plt.figure(figsize=(16, 10))
             sns.scatterplot(
@@ -30,6 +33,7 @@ def plot_it(data, n_components, pd_or_np, dimres_method):
                             legend="full",
                             alpha=0.3
                             )
+            plt.show()
 
         if n_components == 3:
             plt.figure(figsize=(16, 10))
@@ -73,12 +77,37 @@ def plot_it(data, n_components, pd_or_np, dimres_method):
             )
             plt.show()
 
-    print("showing ", dimres_method, " plot...")
+    print("showing ", last_process, " plot...")
 
     if pd_or_np == "np":
-        print("uncompleted code lol")
+        if last_process == "DBSCAN":
+            if n_components == 2:
+                plt.figure(figsize=(16, 10))  # only here for jupyter notebook, otherwise creates empty plots
+                unique_labels = set(db_labels)
+                colors = [plt.cm.Spectral(each)
+                          for each in np.linspace(0, 1, len(unique_labels))]
+                for k, col in zip(unique_labels, colors):
+                    if k == -1:
+                        # Black used for noise.
+                        col = [0, 0, 0, 1]
 
-def import_ima(data):
+                    class_member_mask = (db_labels == k)
+
+                    xy = data[class_member_mask & db_core_samples_mask]
+                    plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
+                             markeredgecolor='k', markersize=14)
+
+                    xy = data[class_member_mask & ~db_core_samples_mask]
+                    plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
+                             markeredgecolor='k', markersize=6)
+
+                plt.title('Estimated number of clusters: %d' % db_n_clusters)
+                plt.show()
+        else:
+            print("Plot failed, What did you pass to the plotting function?")
+
+def import_ima():
+    data = None
     for filename in os.listdir('./ima/'):
         if filename.endswith(".dat"): # Make sure we're iterating over .dat IMA quotes
             filename = './ima/' + filename
@@ -145,6 +174,24 @@ def import_ima(data):
     return data, filepaths
 
 
+def process_filepaths(filepaths):
+    # make filepaths into an appropriate list, and remove /etc/intel/cloudsecurity/data/nonce	and aikquote
+    filepaths = [fp.split('/') for fp in
+                 [fp.strip('/') for fp in filepaths]]
+    fp_filtered = []
+    for line in filepaths:
+        if line[0] == "etc" and line[1] == "intel" and line[2] == "cloudsecurity" and line[3] == "data":
+            if line[4] == "nonce" or line[4] == "aikquote":
+                pass
+        else:
+            if fp_filtered == None:
+                fp_filtered = line
+            else:
+                fp_filtered.append(line)
+
+    return fp_filtered
+
+
 def high_corr_filter(datanp, feat_cols, drawmap):
 
     df = pd.DataFrame(data=datanp, columns=feat_cols)
@@ -181,12 +228,12 @@ def high_corr_filter(datanp, feat_cols, drawmap):
 from sklearn.decomposition import PCA
 
 
-def func_pca(datanp, feat_cols, drawplot):
+def func_pca(datanp, feat_cols, drawplot, n_components):
     np.random.seed(123)
     # initialize
     df = pd.DataFrame(data=datanp, columns=feat_cols)
     rndperm = np.random.permutation(df.shape[0])
-    pca = PCA(n_components=3)
+    pca = PCA(n_components=n_components)
     # can adjust how many components, but will have to edit
     # below code as well.
     pca_result = pca.fit_transform(df.values)
@@ -242,7 +289,7 @@ def func_tsne(datanp, feat_cols, drawplot, n_components):
         plot_it(data=df,
                 n_components=n_components,
                 pd_or_np="pd",
-                dimres_method="tsne")
+                last_process="tsne")
 
     datanp = df.to_numpy()
     return datanp
@@ -273,7 +320,7 @@ def func_umap(datanp, feat_cols, drawplot, n_components):
         plot_it(data=df,
                 n_components=n_components,
                 pd_or_np="pd",
-                dimres_method="umap")
+                last_process="umap")
 
     datanp = df.to_numpy()
     return datanp
@@ -282,83 +329,142 @@ def func_umap(datanp, feat_cols, drawplot, n_components):
 from sklearn.cluster import DBSCAN
 from sklearn import metrics
 from sklearn.preprocessing import StandardScaler
-
+from mpl_toolkits.mplot3d import Axes3D
 
 def func_dbscan(data, eps, min_samples, drawplot):
     data = data
+    if data.shape[1] == 2:
+        db = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
+        core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+        core_samples_mask[db.core_sample_indices_] = True
+        labels = db.labels_
 
-    # initialize
-    db = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
-    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-    core_samples_mask[db.core_sample_indices_] = True
-    labels = db.labels_
+        # Number of clusters in labels, ignoring noise if present.
+        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+        n_noise_ = list(labels).count(-1)
 
-    # Number of clusters in labels, ignoring noise if present.
-    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-    n_noise_ = list(labels).count(-1)
+        print('Estimated number of clusters: %d' % n_clusters_)
+        print('Estimated number of noise points: %d' % n_noise_)
+        # print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels_true, labels))
+        # print("Completeness: %0.3f" % metrics.completeness_score(labels_true, labels))
+        # print("V-measure: %0.3f" % metrics.v_measure_score(labels_true, labels))
+        # print("Adjusted Rand Index: %0.3f"
+        #       % metrics.adjusted_rand_score(labels_true, labels))
+        # print("Adjusted Mutual Information: %0.3f"
+        #       % metrics.adjusted_mutual_info_score(labels_true, labels))
+        # print("Silhouette Coefficient: %0.3f"
+        #       % metrics.silhouette_score(X, labels))
 
-    print('Estimated number of clusters: %d' % n_clusters_)
-    print('Estimated number of noise points: %d' % n_noise_)
-    # print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels_true, labels))
-    # print("Completeness: %0.3f" % metrics.completeness_score(labels_true, labels))
-    # print("V-measure: %0.3f" % metrics.v_measure_score(labels_true, labels))
-    # print("Adjusted Rand Index: %0.3f"
-    #       % metrics.adjusted_rand_score(labels_true, labels))
-    # print("Adjusted Mutual Information: %0.3f"
-    #       % metrics.adjusted_mutual_info_score(labels_true, labels))
-    # print("Silhouette Coefficient: %0.3f"
-    #       % metrics.silhouette_score(X, labels))
+        df = pd.DataFrame(data=data, columns=["db-1", "db-2"])
+        df["clusters"] = labels
+        data = df.to_numpy()
 
-    if drawplot == 1:
-        plt.figure(figsize=(16, 10))  # only here for jupyter notebook, otherwise creates empty plots
-        unique_labels = set(labels)
-        colors = [plt.cm.Spectral(each)
-                  for each in np.linspace(0, 1, len(unique_labels))]
-        for k, col in zip(unique_labels, colors):
-            if k == -1:
-                # Black used for noise.
-                col = [0, 0, 0, 1]
+        if drawplot == 1:
+            plot_it(n_components=data.shape[1], pd_or_np="np",
+                    last_process="DBSCAN", db_core_samples_mask=core_samples_mask,
+                    db_labels=labels, db_n_clusters=n_clusters_)
+    elif data.shape[1] == 3:
 
-            class_member_mask = (labels == k)
+        # fig = plt.figure()
+        # ax = Axes3D(fig)
+        # ax.scatter(data[:, 0], data[:, 1], data[:, 2], s=300)
+        # ax.view_init(azim=200)
+        # plt.show()
 
-            xy = data[class_member_mask & core_samples_mask]
-            plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
-                     markeredgecolor='k', markersize=14)
+        # db = DBSCAN(eps=eps, min_samples=min_samples)
+        # db.fit_predict(data)
+        # pred = db.fit_predict(data)
+        # if drawplot == 1:
+        #     fig = plt.figure()
+        #     ax = Axes3D(fig)
+        #     ax.scatter(data[:, 0], data[:, 1], data[:, 2], c=db.labels_, s=300)
+        #     ax.view_init(azim=200)
+        #     plt.show()
 
-            xy = data[class_member_mask & ~core_samples_mask]
-            plt.plot(xy[:, 0], xy[:, 1], 'o', markerfacecolor=tuple(col),
-                     markeredgecolor='k', markersize=6)
+        db = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
+        core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+        core_samples_mask[db.core_sample_indices_] = True
+        labels = db.labels_
 
-        plt.title('Estimated number of clusters: %d' % n_clusters_)
-        plt.show()
+        # Number of clusters in labels, ignoring noise if present.
+        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+        n_noise_ = list(labels).count(-1)
+        ########################
+        if drawplot == 1:
+            fig = plt.figure()
+            ax = Axes3D(fig)
+            ax.scatter(data[:, 0], data[:, 1], data[:, 2], c=db.labels_, s=5)
+            ax.view_init(azim=200)
+            plt.title('Estimated number of clusters: %d' % n_clusters_)
+            plt.show()
+            # plt.figure(figsize=(16, 10))  # only here for jupyter notebook, otherwise creates empty plots
+            unique_labels = set(labels)
+            # colors = [plt.cm.Spectral(each)
+            #             for each in np.linspace(0, 1, len(unique_labels))]
+            # for k, col in zip(unique_labels, colors):
+            #     if k == -1:
+            #         # Black used for noise.
+            #         col = [0, 0, 0, 1]
+            #
+            #     class_member_mask = (labels == k)
+            #
+            #     xyz = data[class_member_mask & core_samples_mask]
+            #     plt.plot(xyz[:, 0], xyz[:, 1], xyz[:, 2], 'o', markerfacecolor=tuple(col),
+            #              markeredgecolor='k', markersize=14)
+            #
+            #     xyz = data[class_member_mask & ~core_samples_mask]
+            #     plt.plot(xyz[:, 0], xyz[:, 1], xyz[:, 2], 'o', markerfacecolor=tuple(col),
+            #              markeredgecolor='k', markersize=6)
+
+        ########################
+
+        print("number of cluster found: {}".format(len(set(db.labels_))))
+        print('cluster for each point: ', db.labels_)
+
+        labels = db.labels_
+        df = pd.DataFrame(data=data, columns=["db-1", "db-2", "db-3"])
+        df["clusters"] = labels
+        data = df.to_numpy()
 
     # print(data.shape)
     # print(labels.shape)
-    df = pd.DataFrame(data=data, columns=["red-1", "red-2"])
-    df["clusters"] = labels
-    data = df.to_numpy()
 
-    return data #3rd column is labels
+    # last column is labels
+    return data
 
 
 from IPython.core.display import display, HTML
 
 
 def explore_cluster(datanp, dataclust, cols, filepaths):
-    df = pd.DataFrame(data=datanp, columns=cols)
+    try:
+        df = pd.DataFrame(data=datanp, columns=cols)
     # df["comp-1"] = dataclust[:, 0]
     # df["comp-2"] = dataclust[:, 1]
+    except:
+        pass
+
     df_display = pd.DataFrame()
-    df_display["inode"] = df["inode"]
-    df_display["pid"] = df["pid"]
-    df_display["filepaths"] = filepaths
-    df_display["cluster"] = dataclust[:, 2]
+    try:
+        df_display["inode"] = df["inode"]
+    except:
+        pass
+    try:
+        df_display["pid"] = df["pid"]
+    except:
+        pass
+    try:
+        df_display["filepaths"] = filepaths
+    except:
+        pass
+    df_display["cluster"] = dataclust[:, -1]
+
 
     pd.set_option('display.width', None)
     pd.set_option('display.max_rows', None)
     pd.set_option('display.max_columns', None)
     # pd.set_option('display.max_colwidth', -1)
 
-    df_display = df_display.sort_values(by=['cluster', "inode", "pid"])
+    df_display = df_display.sort_values(by=['cluster']) #, "inode", "pid"
     display(HTML(df_display.to_html()))
     # print(datanp[datanp[:, 7].argsort()])

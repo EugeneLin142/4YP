@@ -1,59 +1,69 @@
-import numpy as np
-import pandas as pd
-import sys
-import warnings
 from functions import *
-warnings.filterwarnings("ignore")
+from embed_functions import *
+from eval_functions import *
+import pandas as pd
 
-# I will work with only numpy in main.py for both simplicity's sake, and because of pandas
-# handling memory strangely
+# Import filepaths
+datacode, filepaths_raw = import_ima()
+print("Number of filepaths before filtering:{}".format(len(filepaths_raw)))
 
-# for reproducibility
-np.random.seed(123)
+# Remove all filepaths involved in TP quotes
+filepaths = process_filepaths(filepaths_raw)
+print("Number of filepaths after filtering:{}".format(len(filepaths)))
 
-# print full arrays/dataframes for debugging
-np.set_printoptions(threshold=sys.maxsize)
+dim_size = 50
+ft_model, encoded_fps = do_fasttext(filepaths, dim_size=dim_size, epochs=1)
+data_pca = func_pca(datanp=encoded_fps, feat_cols=range(1, dim_size+1), drawplot=0, n_components=3)
+data_pca_clustered = func_dbscan(data=data_pca[:, [-3,-2,-1]],
+                        eps=0.05,
+                        min_samples=2,
+                        drawplot=0)
 
-# names of columns extracted.
-# note we are not using filenames right now, will need to look at that
-# for unique identifier because of inode reuse
-feat_cols = ["inode", "pid", "ppid", "uid", "euid", "gid", "egid"]
+new_filepaths = generate_poisoned_filepaths(filepaths, data_pca_clustered)
 
-# import all .dat files from ./ima/ into numpy array
-data = None
-datanp = import_ima(data)
+pd.set_option('display.max_columns', 30)
+print(new_filepaths)
 
-# reduce dimensions with high correlation filter
-# drawmap=1 to see heatmap for justification
-datanp, red_cols = high_corr_filter(datanp=datanp, feat_cols=feat_cols,
-                                    drawmap=0)
-print("datanp.shape", datanp.shape)
+# for i in range(0, len(filepaths)-1):
+#     filepaths[i].append(data_pca_clustered[i][-1])
 
-# reduce dimensions using UMAP (to 2 dimensions), return numpy
-dataumap = func_umap(datanp=datanp, feat_cols=red_cols,
-                     drawplot=1)
-print("dataumap.shape", dataumap.shape)
-print("datanp.shape", datanp.shape)
 
-# reduce dimensions using tSNE (to 2 dimensions), return numpy
-datatsne = func_tsne(datanp=datanp, feat_cols=red_cols,
-                     drawplot=0)
-print("datatsne.shape", datatsne.shape)
-print("datanp.shape", datanp.shape)
 
-# perform 2D DBSCAN (TSNE)
-func_dbscan(data=datatsne[:, [5, 6]],
-            eps=0.4,
-            min_samples=7,
-            drawplot=0)
 
-# reduce dimensions using PCA, return numpy
-data_pca = func_pca(datanp=datanp, feat_cols=red_cols,
-                    drawplot=0)
-print("data_pca.shape", data_pca.shape)
+# df = pd.DataFrame()
+# df["filepaths"] = filepaths
+# model, encoded_fps = do_doc2vec(filepaths, epochs=1)
 
-# perform 2D DBSCAN  (PCA)
-func_dbscan(data=data_pca[:, [5, 6]],
-            eps=0.4,
-            min_samples=7,
-            drawplot=0)
+# process_list = import_process_temp()
+# lev_list = process2lev(process_list)
+# print(lev_list)
+# datacode, filepaths_raw = import_ima()
+# print(len(filepaths_raw))
+# filepaths = process_filepaths(filepaths_raw)
+
+# df = pd.DataFrame()
+# df["filepaths"] = filepaths
+
+# print(len(filepaths))
+
+
+#
+# # elbow_kmeans(data, maxrange=30)
+# datatsne = func_tsne(datanp=encoded_fps, feat_cols=range(1,151), drawplot=1, n_components=3)
+# dataumap = func_umap(datanp=encoded_fps, feat_cols=range(1,151), drawplot=1, n_components=3)
+#
+#
+# dataumap = func_umap(datanp=encoded_fps, feat_cols=range(1,51), drawplot=0, n_components=3)
+# dataumap_clustered = func_dbscan(data=dataumap[:, [50, 51, 52]],
+#                                  eps=0.2,
+#                                  min_samples=20,
+#                                  drawplot=0)
+#
+# feat_cols = []
+# feat_cols.append("filepaths")
+# explore_cluster(datanp=filepaths,
+#                 dataclust=dataumap_clustered,
+#                 cols=feat_cols,
+#                 filepaths=filepaths
+#                 )
+

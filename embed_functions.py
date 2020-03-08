@@ -99,7 +99,7 @@ def do_word2vec(data, epochs):
 
     return model
 
-def do_doc2vec(data, epochs):
+def do_doc2vec(data, epochs, dim_size):
     # Create the tagged document needed for Doc2Vec
     def create_tagged_document(list_of_list_of_words):
         for i, list_of_words in enumerate(list_of_list_of_words):
@@ -108,12 +108,12 @@ def do_doc2vec(data, epochs):
     train_data = list(create_tagged_document(data))
 
     # Init the Doc2Vec model
-    model = gensim.models.doc2vec.Doc2Vec(vector_size=50, min_count=1,
+    model = gensim.models.doc2vec.Doc2Vec(vector_size=dim_size, min_count=1,
                                           workers=cpu_count(), window=2,
                                           epochs=epochs
                                           )
 
-    # Build the Volabulary
+    # Build the Vocabulary
     model.build_vocab(train_data)
 
     # Train the Doc2Vec model
@@ -132,6 +132,7 @@ def do_doc2vec(data, epochs):
     #     loss = model.get_training_loss()
     #     print("iter={0}, loss={1}, learning_rate={2}".format(i, loss, learning_rate))
     #     learning_rate *= 0.6
+
     # Compile paragraph vectors learned from the training data
     a = []
     for i in range(0, len(data)):
@@ -140,3 +141,74 @@ def do_doc2vec(data, epochs):
     a = np.asarray(a, dtype=np.float32)
 
     return model, a
+
+
+import Levenshtein as lev
+
+
+def process2lev(data): #likely useless really
+    baseline = "/"
+    lev_distance = []
+    for process in data:
+        process_dist = lev.distance(baseline, process)
+        lev_distance.append(process_dist)
+    return lev_distance
+
+
+from gensim.models import FastText
+
+def do_fasttext(data, dim_size=300, epochs=200):
+    # Init Model
+    print("building {}".format(dim_size), "dimensional FastText model for {} epochs...".format(epochs))
+    model = FastText(size=dim_size, window=3, min_count=1)
+
+    # Build Vocab
+    model.build_vocab(sentences=data)
+
+    # Train Model
+    model.train(sentences=data, total_examples=len(data), epochs=epochs)
+    print("FastText model trained!")
+
+    # Compile paragraph vectors learned from the training data
+    print("calculating sentence embedding via BOW...")
+    sentence_vec = []
+    for i in range(0, len(data)):       # for every filepath
+        line = [0] * dim_size           # make temp variable for calculations
+        fp_length = len(data[i])
+
+        for item in data[i]:            # for every folder in filepath
+            j = 0
+            item_vec = model.wv[item]
+
+            for dim in item_vec:        # put dimensions into new variable
+                line[j] = line[j] + dim # add dimension into right space
+                j = j + 1               # iterate index for every dimension
+
+        k = 0
+        for dim in line:        # average the dimensions to obtain sentence vector
+            line[k] = line[k]/fp_length
+            k = k + 1
+
+        sentence_vec.append(line)
+    print("sentence vectors embedded.")
+    return model, sentence_vec
+
+def infer_new_fasttext_vector(datum, FTmodel):
+    dim_size = len(FTmodel.wv["usr"])
+    # datum should, as always, be a list of strings, representing the filepath
+    line = [0] * dim_size               # make temp variable for calculations
+    fp_length = len(datum)
+    for item in datum:                  # for every folder in filepath
+        j = 0
+        item_vec = FTmodel.wv[item]
+
+        for dim in item_vec:            # put dimensions into new variable
+            line[j] = line[j] + dim     # add dimension into right space
+            j = j + 1                   # iterate index for every dimension
+
+        k = 0
+        for dim in line:                # average the dimensions to obtain sentence vector
+            line[k] = line[k] / fp_length
+            k = k + 1
+
+    return(line)

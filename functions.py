@@ -115,20 +115,20 @@ def import_ima():
             print(filename)
             if data is None:
                 data = np.genfromtxt(filename,
-                       dtype=None,
+                       dtype='unicode',
                        delimiter=' ',
                        usecols=(5, 7, 8, 9, 10, 11, 12))
                 filepaths = np.genfromtxt(filename,
-                                          dtype=None,
+                                          dtype='unicode',
                                           delimiter=' ',
                                           usecols=(4))
             else:
                 datanew = np.genfromtxt(filename,
-                                        dtype=None,
+                                        dtype='unicode',
                                         delimiter=' ',
                                         usecols=(5, 7, 8, 9, 10, 11, 12))
                 filepathsnew = np.genfromtxt(filename,
-                                          dtype=None,
+                                          dtype='unicode',
                                           delimiter=' ',
                                           usecols=(4))
                 try:
@@ -178,18 +178,40 @@ def process_filepaths(filepaths):
     # make filepaths into an appropriate list, and remove /etc/intel/cloudsecurity/data/nonce	and aikquote
     filepaths = [fp.split('/') for fp in
                  [fp.strip('/') for fp in filepaths]]
+
     fp_filtered = []
+
     for line in filepaths:
         if line[0] == "etc" and line[1] == "intel" and line[2] == "cloudsecurity" and line[3] == "data":
             if line[4] == "nonce" or line[4] == "aikquote":
                 pass
+        elif line[0] == "root" and line[1] == "ima_archive" and line[2] == "data":
+            pass
         else:
+            for token in line:
+                token = token.lower()
+
             if fp_filtered == None:
                 fp_filtered = line
             else:
                 fp_filtered.append(line)
 
+    # if fp_filtered[-1] == None:
+    #     del fp_filtered[-1]
+
     return fp_filtered
+
+
+def save_listoflists_tofile(listoflists, name):
+    name = name + ".txt"
+    with open(name, 'w') as f:
+        for _list in listoflists:
+            for _string in _list:
+                # f.seek(0)
+                f.write(str(_string) + ' ')
+            f.write('\n')
+    print("File saved to: {}".format(name))
+
 
 
 def high_corr_filter(datanp, feat_cols, drawmap):
@@ -468,3 +490,11 @@ def explore_cluster(datanp, dataclust, cols, filepaths):
     df_display = df_display.sort_values(by=['cluster']) #, "inode", "pid"
     display(HTML(df_display.to_html()))
     # print(datanp[datanp[:, 7].argsort()])
+
+
+def import_process_temp():
+    with open("processlist.txt") as list:
+        process_names = []
+        for item in list:
+            process_names.append(item[0:-5])
+    return process_names

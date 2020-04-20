@@ -8,6 +8,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 import os
+import plotly.express as px
+from orderset import OrderedSet
 from mpl_toolkits.mplot3d import Axes3D as ax
 
 from sklearn.model_selection import train_test_split
@@ -106,6 +108,7 @@ def plot_it(n_components, pd_or_np, last_process, data = None,
         else:
             print("Plot failed, What did you pass to the plotting function?")
 
+
 def import_ima():
     data = None
     for filename in os.listdir('./ima/'):
@@ -123,19 +126,24 @@ def import_ima():
                                           delimiter=' ',
                                           usecols=(4))
             else:
-                datanew = np.genfromtxt(filename,
-                                        dtype='unicode',
-                                        delimiter=' ',
-                                        usecols=(5, 7, 8, 9, 10, 11, 12))
-                filepathsnew = np.genfromtxt(filename,
-                                          dtype='unicode',
-                                          delimiter=' ',
-                                          usecols=(4))
+                try:
+                    datanew = np.genfromtxt(filename,
+                                            dtype='unicode',
+                                            delimiter=' ',
+                                            usecols=(5, 7, 8, 9, 10, 11, 12))
+                    filepathsnew = np.genfromtxt(filename,
+                                                 dtype='unicode',
+                                                 delimiter=' ',
+                                                 usecols=(4))
+                except:
+                    print(filename, " is likely not encoded properly, (search code WALNUT) skipping this quote...")
+                    pass
+
                 try:
                     data = np.concatenate((data, datanew), axis=0)
                     filepaths = np.concatenate((filepaths, filepathsnew), axis=0)
                 except:
-                    print(filename, " is likely not encoded properly, skipping this quote...")
+                    print(filename, " is likely not encoded properly, (search code BERRY) skipping this quote...")
                     pass
                         # for some reason some quotes are read in as 0-dimensional
                         # I believe because the data in the quotes aren't encoded properly
@@ -174,14 +182,16 @@ def import_ima():
     return data, filepaths
 
 
-def process_filepaths(filepaths):
+def process_filepaths(data, filepaths):
     # make filepaths into an appropriate list, and remove /etc/intel/cloudsecurity/data/nonce	and aikquote
     filepaths = [fp.split('/') for fp in
                  [fp.strip('/') for fp in filepaths]]
 
     fp_filtered = []
+    data_filtered = None
 
     for line in filepaths:
+        line_index = filepaths.index(line)
         if line[0] == "etc" and line[1] == "intel" and line[2] == "cloudsecurity" and line[3] == "data":
             if line[4] == "nonce" or line[4] == "aikquote":
                 pass
@@ -191,15 +201,111 @@ def process_filepaths(filepaths):
             for token in line:
                 token = token.lower()
 
-            if fp_filtered == None:
+            if fp_filtered == None:  # Actually I think this does nothing but don't want to change what's working
                 fp_filtered = line
+                data_filtered = data[:, line_index]
             else:
                 fp_filtered.append(line)
-
+                if data_filtered is None:
+                    data_filtered = np.array(data[line_index, :])
+                else:
+                    try:
+                        data_filtered = np.concatenate(([data_filtered], np.array([data[line_index, :]])), axis=0)
+                    except:
+                        data_filtered = np.concatenate((data_filtered, np.array([data[line_index, :]])), axis=0)
+                        # above is jank as fuck but then again so is np >:( angory
     # if fp_filtered[-1] == None:
     #     del fp_filtered[-1]
 
-    return fp_filtered
+    return data_filtered, fp_filtered
+
+
+def pid_to_pname(data):
+    pd.set_option('display.max_rows', None)
+    pd.set_option('display.max_columns', None)
+    pd.set_option('display.width', None)
+    pd.set_option('display.max_colwidth', -1)
+    # first import list of known pid/process pairs
+    pairlist = 'nextcloud_ps.csv'
+    pairlist = pd.read_csv(pairlist)
+
+    # make dataframe for process names
+    new_data = pd.DataFrame(data=None)
+    new_data["process_name"] = data[:, 1]           # first read in pids
+    new_data["parent_process_name"] = data[:, 2]    # and ppids
+
+    # alter COMMAND field to remove [ and ] to obtain 'process name'
+    for command in pairlist["COMMAND"]:
+        command_index = pairlist["COMMAND"].tolist().index(command)
+        if command[0] == "[":
+            pairlist["COMMAND"][command_index] = command[1:-1]
+
+    # Convert some lists to ordered sets for lookup speed
+    pidlist = np.array(pairlist["PID"])
+    procnamelist = np.array(pairlist["COMMAND"])
+    parent_pname = np.array(new_data["parent_process_name"]).astype(np.int)
+    pname = np.array(new_data["process_name"]).astype(np.int)
+
+    # look for matches of known pairs in parent processes
+    for current_search in parent_pname:
+        if current_search == 1:
+            pass
+        try:
+            searchterm = np.where(pidlist == current_search)[0][0]
+        except:
+            searchterm = None
+        if searchterm is not None:
+            data_pid_index = np.where(parent_pname == current_search)[0][0]
+            parent_pname[data_pid_index] = 9999999
+            new_data["parent_process_name"][data_pid_index] = procnamelist[searchterm]
+
+    # repeat for processes
+    for current_search in pname:
+        if current_search == 1:
+            pass
+        try:
+            searchterm = np.where(pidlist == current_search)[0][0]
+        except:
+            searchterm = None
+        if searchterm is not None:
+            data_pid_index = np.where(pname == current_search)[0][0]
+            pname[data_pid_index] = 9999999
+            new_data["process_name"][data_pid_index] = procnamelist[searchterm]
+
+    # Should work but way too slow (alternative for above block)
+    # for pid in pairlist["PID"]:
+    #     # look for matches of known pairs
+    #     for current_search in new_data["parent_process_name"]:
+    #         data_pid_index = new_data["parent_process_name"].tolist().index(current_search)
+    #         if current_search == pid:
+    #             new_data["parent_process_name"][data_pid_index] = pairlist.loc[pairlist['PID'] == pid, 'COMMAND']
+    #
+    #     for current_search in new_data["process_name"]:
+    #         data_pid_index = new_data["process_name"].tolist().index(current_search)
+    #         if current_search == pid:
+    #             new_data["process_name"][data_pid_index] = pairlist.loc[pairlist['PID'] == pid, 'COMMAND']
+
+    return new_data
+
+
+def trim_data(data, filepaths):
+    olddata = pd.DataFrame(data=None)
+    olddata["process_name"] = data["process_name"]
+    olddata["parent_process_name"] = data["parent_process_name"]
+    olddata["filepath_tokens"] = filepaths
+    new_data = []
+    for index, row in olddata.iterrows():
+        if row["process_name"].isdigit() is True:
+            if row["parent_process_name"].isdigit() is True:
+                pass
+            else:
+                new_data.append([row["process_name"], row["parent_process_name"], row["filepath_tokens"]])
+        else:
+            new_data.append([row["process_name"], row["parent_process_name"], row["filepath_tokens"]])
+
+    new_data = pd.DataFrame.from_records(new_data)
+    new_data.columns = ["process_name", "parent_process_name", "filepath_tokens"]
+    return new_data
 
 
 def save_listoflists_tofile(listoflists, name):
@@ -448,6 +554,37 @@ def func_dbscan(data, eps, min_samples, drawplot):
         df["clusters"] = labels
         data = df.to_numpy()
 
+    elif data.shape[1] == 5:
+        # For naive clustering - using no relation between process and parent process names
+        db = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
+        core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+        core_samples_mask[db.core_sample_indices_] = True
+        labels = db.labels_
+
+        # Number of clusters in labels, ignoring noise if present.
+        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+        n_noise_ = list(labels).count(-1)
+
+        print('Estimated number of clusters: %d' % n_clusters_)
+        print('Estimated number of noise points: %d' % n_noise_)
+
+        if drawplot == 1:
+            df = pd.DataFrame(data=None)
+            df["pca-1"] = data[:, 0]
+            df["pca-2"] = data[:, 1]
+            df["pca-3"] = data[:, 2]
+            df["cluster"] = db.labels_
+            fig = px.scatter_3d(df, x='pca-1', y='pca-2', z='pca-3',
+                                color='cluster')
+            fig.show()
+
+            # matplotlib not working...
+            # fig = plt.figure()
+            # ax = Axes3D(fig)
+            # ax.scatter(data[:, 0], data[:, 1], data[:, 2]) #, c=db.labels_, s=5
+            # ax.view_init(azim=200)
+            # plt.title('Estimated number of clusters: %d' % n_clusters_)
+            # plt.show()
     # print(data.shape)
     # print(labels.shape)
 

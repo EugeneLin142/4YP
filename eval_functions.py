@@ -229,7 +229,7 @@ def run_model(model_name="FastText", pretrained_model=None, model_epochs=200, fi
             pass
 
         else:
-            print("Dimentionality reduction method {} unrecognized, please provide"
+            print("Dimensionality reduction method {} unrecognized, please provide"
                   "'PCA', 't-SNE', or 'UMAP'.".format(dimres_method))
             exit()
 
@@ -255,7 +255,7 @@ def calc_loss(fp_df, new_clustered_data, new_filepaths):
     return loss_rate
 
 
-def eval_model(model_name, dimres_method, model_epochs, model_dim_size, db_params, drawplots=1, model=None):
+def eval_model(model_name, dimres_method, model_epochs, model_dim_size, db_params, drawplots=0, model=None):
     np.random.seed(123)
 
     time_start = time.time()
@@ -265,7 +265,7 @@ def eval_model(model_name, dimres_method, model_epochs, model_dim_size, db_param
     else:
         pass
     clustered_data, model, original_filepaths, original_encoded_filepaths = run_model(model_name=model_name, model_epochs=model_epochs, dimres_method=dimres_method,
-                                                          model_dim_size=model_dim_size, db_params=db_params, drawplots=drawplots, pretrained_model=model)
+                                                          model_dim_size=model_dim_size, db_params=db_params, drawplots=drawplots)
     if model_flag == 0:
         print("\nTime taken to build new model and find clusters: {} seconds".format(time.time()-time_start))
     else:
@@ -294,4 +294,4 @@ def eval_model(model_name, dimres_method, model_epochs, model_dim_size, db_param
 
     print("\nTotal Time Elapsed with this evaluation: {} minutes".format((time.time() - time_start)/60))
 
-    return loss_rate, new_clustered_data, new_fp_df, model
+    return loss_rate, new_clustered_data, new_fp_df

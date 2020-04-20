@@ -2,27 +2,39 @@ from functions import *
 from embed_functions import *
 from eval_functions import *
 import pandas as pd
+import numpy as np
 
 # Import filepaths
 datacode, filepaths_raw = import_ima()
-print("Number of filepaths before filtering:{}".format(len(filepaths_raw)))
+print("Number of quotes before filtering:{}".format(len(filepaths_raw)))
 
 # Remove all filepaths involved in TP quotes
-filepaths = process_filepaths(filepaths_raw)
-print("Number of filepaths after filtering:{}".format(len(filepaths)))
+data, filepaths = process_filepaths(datacode, filepaths_raw)
+print("Number of quotes after removing ima processes:{}".format(len(filepaths)))
 
-dim_size = 50
-ft_model, encoded_fps = do_fasttext(filepaths, dim_size=dim_size, epochs=1)
+data = pid_to_pname(data)
+
+data_df_named = trim_data(data, filepaths)
+print("Number of quotes after removing unknown processes:{}".format(len(data)))
+
+data_df_embed = pd.DataFrame(data=None)
+data_df_embed["process_name"] = ascii_sum_embed(data_df_named["process_name"].tolist())
+data_df_embed["parent_process_name"] = ascii_sum_embed(data_df_named["parent_process_name"].tolist())
+data_df_embed["filepath_tokens"] = data_df_named["filepath_tokens"]
+
+dim_size = 150
+ft_model, encoded_fps = do_fasttext(data_df_embed["filepath_tokens"], dim_size=dim_size, epochs=1)
 data_pca = func_pca(datanp=encoded_fps, feat_cols=range(1, dim_size+1), drawplot=0, n_components=3)
-data_pca_clustered = func_dbscan(data=data_pca[:, [-3,-2,-1]],
-                        eps=0.05,
+
+for column in ["process_name", "parent_process_name"]:
+    data_pca = np.concatenate((data_pca, data_df_embed[column].to_numpy().reshape((-1, 1))), axis=1)
+
+# final_pca = func_pca(datanp=data_pca[:, [-5, -4, -3, -2, -1]], feat_cols=range(1, 6), drawplot=1, n_components=3)
+data_pca_clustered = func_dbscan(data=data_pca[:, [-5,-4,-3,-2,-1]],
+                        eps=0.4,
                         min_samples=2,
-                        drawplot=0)
+                        drawplot=1)
 
-new_filepaths = generate_poisoned_filepaths(filepaths, data_pca_clustered)
-
-pd.set_option('display.max_columns', 30)
-print(new_filepaths)
 
 # for i in range(0, len(filepaths)-1):
 #     filepaths[i].append(data_pca_clustered[i][-1])

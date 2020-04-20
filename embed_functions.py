@@ -15,6 +15,24 @@ from keras.utils import np_utils
 from keras.preprocessing import sequence
 import os
 
+def ascii_sum_embed(list_of_words):
+    # Converts process/parent process name pairs into numbers by adding the ascii
+    # decimal values of each character in each name together.
+    list_of_nums = []
+    for word in list_of_words:
+        word_total = int(0)
+        if word.isdigit() is True:
+            # There is a number of pid/ppid pairs where one was identified with a known
+            # name and the other not, for these we convert the known one to a number,
+            # and simply carry over the other
+            word_total = word
+        else:
+            for char in word:
+                word_total = word_total + ord(char)
+        list_of_nums.append(word_total)
+
+    return list_of_nums
+
 def normalize_document(doc):
     wpt = nltk.WordPunctTokenizer()
     stop_words = nltk.corpus.stopwords.words('english')

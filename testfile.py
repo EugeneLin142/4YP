@@ -1,51 +1,47 @@
-from eval_functions import eval_model
-
-eval_model(model_name="doc2vec", dimres_method="pca", model_epochs=100, model_dim_size=300, db_params=[0.2,1], drawplots=0)
-
-# import numpy as np; np.random.seed(0)
-# import seaborn as sns; sns.set()
-# import pandas as pd
-# import matplotlib.pyplot as plt
-#
-# data = [[1,2], [2,3], [3,4]]
-#
-# data = pd.DataFrame(data, columns=["col1", "col2"], index=["r1", "r2", "r3"])
-#
-# print(data)
-# ax = sns.heatmap(data, annot=True)
-# # fix for mpl bug that cuts off top/bottom of seaborn viz
-# b, t = plt.ylim() # discover the values for bottom and top
-# b += 0.5 # Add 0.5 to the bottom
-# t -= 0.5 # Subtract 0.5 from the top
-# plt.ylim(b, t) # update the ylim(bottom, top) values
-# plt.show()
-# import pandas as pd
-# import numpy as np
-#
-# df = pd.DataFrame(data=None)
-# df["column one"] = [[1, 4], [2, 3], [3, 4]]
-#
-# print(df["column one"].tolist().index([1, 4]))
-#
+# filename = 'star_wars_holiday.txt'
+# file = open(filename, 'rt')
+# text = file.read()
+# file.close()
+# # split into words by white space
+# words = text.split()
+# # convert to lower case
+# words = [word.lower() for word in words]
+import numpy as np
+import pandas as pd
 
 
+data_df_embed = pd.DataFrame(data=None)
+data_df_embed["process_name"] = [0, 1]
+data_df_embed["parent_process_name"] = [222, 777]
 
-# print(common_texts[0])
-# print(len(common_texts))
-#
-# model = FastText(size=5, window=3, min_count=1)
-# model.build_vocab(sentences=common_texts)
-# model.train(sentences=common_texts, total_examples=len(common_texts), epochs=10)
-#
-# print(model.wv["human"])
-# print(model.wv.vectors_vocab[0])
+from sklearn.cluster import DBSCAN
+
+data_pca = np.array([[1,2,3,4,5],
+                     [2,3,4,5,6],
+                     [3,4,5,6,7],
+                     [234243,22,3,4,5],
+                     [0,0,0,0,0]
+                     ])
+
+db = DBSCAN(eps=5, min_samples=2).fit(data_pca)
+core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+core_samples_mask[db.core_sample_indices_] = True
+labels = db.labels_
+
+# Number of clusters in labels, ignoring noise if present.
+n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+n_noise_ = list(labels).count(-1)
+
+print('Estimated number of clusters: %d' % n_clusters_)
+print('Estimated number of noise points: %d' % n_noise_)
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
-# exist_word = "computer"
-# computer_vec = model.wv[exist_word]
-# print(computer_vec)
-#
-# oov_word = "graph-out-of-vocab"
-#
-# oov_vec = model.wv[oov_word]
-# print(oov_vec)
+fig = plt.figure()
+ax = Axes3D(fig)
+ax.scatter(data_pca[:, 0], data_pca[:, 1], data_pca[:, 2], c=db.labels_, s=5)
+ax.view_init(azim=200)
+plt.title('Estimated number of clusters: %d' % n_clusters_)
+plt.show()

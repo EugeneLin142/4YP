@@ -1,47 +1,115 @@
-# filename = 'star_wars_holiday.txt'
-# file = open(filename, 'rt')
-# text = file.read()
-# file.close()
-# # split into words by white space
-# words = text.split()
-# # convert to lower case
-# words = [word.lower() for word in words]
+# from random import randint, seed
+# import numpy as np
+#
+# fours = 0
+# threes = 0
+# twos = 0
+# ones = 0
+#
+# for trial in range(0, 1000000):
+#     seed(trial)
+#     num = int(np.log2(randint(1, 2 ** 5)))
+#
+#     if num == 4:
+#         fours += 1
+#     if num == 3:
+#         threes += 1
+#     if num == 2:
+#         twos += 1
+#     if num == 1:
+#         ones += 1
+#
+#
+# print(fours)
+# print(threes)
+# print(twos)
+# print(ones)
+from hyperopt import hp, tpe, Trials, fmin, STATUS_OK
 import numpy as np
-import pandas as pd
+from hyperopt_eval_functions import run_hyp_model, generate_poisoned_filepaths, calc_loss
+import csv
+import time
+import pickle
 
+def eval_model(params, drawplots=0, model=None): # modified version of eval_model used for hyperopt
+    np.random.seed(123)
+    model_name = "FastText"
+    dimres_method = "pca" # str(params['dimres_method'])
+    model_epochs = int(params['model_epochs'])
+    model_dim_size = int(params['model_dim_size'])
+    db_params = [params['db_eps'], 1]
+    time_start = time.time()
 
-data_df_embed = pd.DataFrame(data=None)
-data_df_embed["process_name"] = [0, 1]
-data_df_embed["parent_process_name"] = [222, 777]
+    global ITERATION
+    ITERATION += 1
 
-from sklearn.cluster import DBSCAN
+    print("\nFinding original clusters...\n")
+    if model is None:
+        model_flag = 0
+    else:
+        pass
+    clustered_data, model, original_filepaths, original_encoded_filepaths = run_hyp_model(model_name=model_name, model_epochs=model_epochs, dimres_method=dimres_method,
+                                                                                          model_dim_size=model_dim_size, db_params=db_params, drawplots=drawplots, pretrained_model=model)
+    if model_flag == 0:
+        print("\nTime taken to build new model and find clusters: {} seconds".format(time.time()-time_start))
+    else:
+        print("\nTime taken to and find clusters from existing model: {} seconds".format(time.time()-time_start))
 
-data_pca = np.array([[1,2,3,4,5],
-                     [2,3,4,5,6],
-                     [3,4,5,6,7],
-                     [234243,22,3,4,5],
-                     [0,0,0,0,0]
-                     ])
+    print("\nPoisoning data...")
+    new_fp_df = generate_poisoned_filepaths(filepaths=original_filepaths, clustered_data=clustered_data)
 
-db = DBSCAN(eps=5, min_samples=2).fit(data_pca)
-core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-core_samples_mask[db.core_sample_indices_] = True
-labels = db.labels_
+    # for filepath in new_fp_df["new filepath"]:
+    #     original_filepaths.append(filepath)
+    #
+    # new_filepaths = original_filepaths
 
-# Number of clusters in labels, ignoring noise if present.
-n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-n_noise_ = list(labels).count(-1)
+    time_start_2 = time.time()
+    print("\nFinding new clusters...\n")
+    new_clustered_data, model, combined_filepaths, new_encoded_filepaths = run_hyp_model(model_name=model_name, model_epochs=model_epochs, pretrained_model=model,
+                                                                                         model_dim_size=model_dim_size, filepaths=original_filepaths, encoded_fps=original_encoded_filepaths,
+                                                                                         new_filepaths=new_fp_df["new filepath"].tolist(), dimres_method=dimres_method,
+                                                                                         db_params=db_params, drawplots=drawplots)
+    print("\nTime taken to find new filepath clusters using existing model: {} seconds".format(time.time() - time_start_2))
 
-print('Estimated number of clusters: %d' % n_clusters_)
-print('Estimated number of noise points: %d' % n_noise_)
+    print("\nCalculating loss rate...")
+    loss = calc_loss(new_fp_df, new_clustered_data, combined_filepaths)
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+    print(loss, "%")
 
+    run_time = (time.time() - time_start)/60
 
-fig = plt.figure()
-ax = Axes3D(fig)
-ax.scatter(data_pca[:, 0], data_pca[:, 1], data_pca[:, 2], c=db.labels_, s=5)
-ax.view_init(azim=200)
-plt.title('Estimated number of clusters: %d' % n_clusters_)
-plt.show()
+    print("\nTotal Time Elapsed with this evaluation: {} minutes".format(run_time))
+
+    # avoid the trivial solution
+    if max(new_clustered_data[:, -1]) < 50:
+        loss = 999
+    else:
+        pass
+
+    # Write to the csv file ('a' means append)
+    of_connection = open(out_file, 'a')
+    writer = csv.writer(of_connection)
+    writer.writerow([loss, params, ITERATION, run_time])
+
+    global tpe_trials
+    pickle.dump(tpe_trials, open("tpe_trials.p", "wb"))
+
+    return {'loss': loss, 'params': params, 'iteration': ITERATION,
+            'train_time': run_time, 'status': STATUS_OK}  #, new_clustered_data, new_fp_df, model
+tpe_trials = Trials()
+ITERATION = 0
+out_file = "eval_trials.csv"
+of_connection = open(out_file, 'w')
+writer = csv.writer(of_connection)
+
+# Write the headers to the file
+writer.writerow(['loss', 'params', 'iteration', 'train_time'])
+of_connection.close()
+space = {
+    'model_name': "FastText",
+    'dimres_method': "pca",
+    'model_epochs': 50,
+    'model_dim_size': 100,
+    'db_eps': 0.34
+}
+eval_model(params=space)

@@ -1,6 +1,6 @@
 from functions import *
 from embed_functions import *
-from eval_functions import *
+from hyperopt_eval_functions import *
 import pandas as pd
 import numpy as np
 
@@ -9,11 +9,13 @@ datacode, filepaths_raw = import_ima()
 print("Number of quotes before filtering:{}".format(len(filepaths_raw)))
 
 # Remove all filepaths involved in TP quotes
-data, filepaths = process_filepaths(datacode, filepaths_raw)
+data, filepaths = process_filepaths(datacode, filepaths_raw, data_flag=1)
 print("Number of quotes after removing ima processes:{}".format(len(filepaths)))
 
+# convert known ppids/pids to names
 data = pid_to_pname(data)
 
+# remove unknown associated filepaths
 data_df_named = trim_data(data, filepaths)
 print("Number of quotes after removing unknown processes:{}".format(len(data)))
 

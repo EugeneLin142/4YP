@@ -1,6 +1,6 @@
 from hyperopt import hp, tpe, Trials, fmin, STATUS_OK
 import numpy as np
-from eval_functions import run_model, generate_poisoned_filepaths, calc_loss
+from hyperopt_eval_functions import run_hyp_model, generate_poisoned_filepaths, calc_loss
 import csv
 import time
 import pickle
@@ -22,8 +22,8 @@ def eval_model(params, drawplots=0, model=None): # modified version of eval_mode
         model_flag = 0
     else:
         pass
-    clustered_data, model, original_filepaths, original_encoded_filepaths = run_model(model_name=model_name, model_epochs=model_epochs, dimres_method=dimres_method,
-                                                          model_dim_size=model_dim_size, db_params=db_params, drawplots=drawplots, pretrained_model=model)
+    clustered_data, model, original_filepaths, original_encoded_filepaths = run_hyp_model(model_name=model_name, model_epochs=model_epochs, dimres_method=dimres_method,
+                                                                                          model_dim_size=model_dim_size, db_params=db_params, drawplots=drawplots, pretrained_model=model)
     if model_flag == 0:
         print("\nTime taken to build new model and find clusters: {} seconds".format(time.time()-time_start))
     else:
@@ -39,10 +39,10 @@ def eval_model(params, drawplots=0, model=None): # modified version of eval_mode
 
     time_start_2 = time.time()
     print("\nFinding new clusters...\n")
-    new_clustered_data, model, combined_filepaths, new_encoded_filepaths = run_model(model_name=model_name, model_epochs=model_epochs, pretrained_model=model,
-                                                         model_dim_size=model_dim_size, filepaths=original_filepaths, encoded_fps=original_encoded_filepaths,
-                                                         new_filepaths=new_fp_df["new filepath"].tolist(), dimres_method=dimres_method,
-                                                         db_params=db_params, drawplots=drawplots)
+    new_clustered_data, model, combined_filepaths, new_encoded_filepaths = run_hyp_model(model_name=model_name, model_epochs=model_epochs, pretrained_model=model,
+                                                                                         model_dim_size=model_dim_size, filepaths=original_filepaths, encoded_fps=original_encoded_filepaths,
+                                                                                         new_filepaths=new_fp_df["new filepath"].tolist(), dimres_method=dimres_method,
+                                                                                         db_params=db_params, drawplots=drawplots)
     print("\nTime taken to find new filepath clusters using existing model: {} seconds".format(time.time() - time_start_2))
 
     print("\nCalculating loss rate...")
@@ -75,16 +75,17 @@ def eval_model(params, drawplots=0, model=None): # modified version of eval_mode
 
 
 space = {
-    # 'model_name': hp.choice('model_name', ["FastText", "Doc2Vec"]),
-    # 'dimres_method': hp.choice('dimres_method', ["pca", "t-sne", "umap"]),
+    'model_name': hp.choice('model_name', ["FastText", "Doc2Vec"]),
+    'dimres_method': hp.choice('dimres_method', ["pca", "t-sne", "umap"]),
     'model_epochs': hp.quniform('model_epochs', 10, 500, 10),
     'model_dim_size': hp.quniform('model_dim_size', 50, 500, 10),
-    'db_eps': hp.uniform('db_eps', 0.005, 0.3)
+    'db_eps': hp.uniform('db_eps', 0.0005, 0.03)
 }
 
 
-# tpe_trials = Trials()
-tpe_trials = pickle.load(open("tpe_trials.p", "rb"))
+tpe_trials = Trials()
+# use this line instead if you're continuing
+# tpe_trials = pickle.load(open("tpe_trials.p", "rb"))
 
 ITERATION = 0
 

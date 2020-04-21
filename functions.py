@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 import os
 import plotly.express as px
-from orderset import OrderedSet
 from mpl_toolkits.mplot3d import Axes3D as ax
 
 from sklearn.model_selection import train_test_split
@@ -182,7 +181,7 @@ def import_ima():
     return data, filepaths
 
 
-def process_filepaths(data, filepaths):
+def process_filepaths(data, filepaths, data_flag = 0):
     # make filepaths into an appropriate list, and remove /etc/intel/cloudsecurity/data/nonce	and aikquote
     filepaths = [fp.split('/') for fp in
                  [fp.strip('/') for fp in filepaths]]
@@ -201,11 +200,13 @@ def process_filepaths(data, filepaths):
             for token in line:
                 token = token.lower()
 
-            if fp_filtered == None:  # Actually I think this does nothing but don't want to change what's working
-                fp_filtered = line
-                data_filtered = data[:, line_index]
-            else:
-                fp_filtered.append(line)
+            # if fp_filtered == None:  # Actually I think this does nothing but don't want to change what's working
+            #     fp_filtered = line
+            #     data_filtered = data[:, line_index]
+            # else:
+            fp_filtered.append(line)
+
+            if data_flag == 1:
                 if data_filtered is None:
                     data_filtered = np.array(data[line_index, :])
                 else:
@@ -303,9 +304,9 @@ def trim_data(data, filepaths):
         else:
             new_data.append([row["process_name"], row["parent_process_name"], row["filepath_tokens"]])
 
-    new_data = pd.DataFrame.from_records(new_data)
-    new_data.columns = ["process_name", "parent_process_name", "filepath_tokens"]
-    return new_data
+    new_data_df = pd.DataFrame.from_records(new_data)
+    new_data_df.columns = ["process_name", "parent_process_name", "filepath_tokens"]
+    return new_data_df
 
 
 def save_listoflists_tofile(listoflists, name):

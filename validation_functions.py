@@ -265,7 +265,7 @@ def main():
     print("Number of quotes before filtering:{}".format(len(filepaths_raw)))
 
     # Remove all filepaths involved in TP quotes
-    data, filepaths = process_filepaths(datacode, filepaths_raw)
+    data, filepaths = process_filepaths(datacode, filepaths_raw, data_flag=1)
     print("Number of quotes after removing ima processes:{}".format(len(filepaths)))
 
     # convert known ppids/pids to names
@@ -278,7 +278,7 @@ def main():
 
     # Choose next hyperparameters from hyperopt eval results
 
-    clustered_data = run_val_model(model_name="FastText", model_epochs=1, dimres_method="pca", quotes=quotes,
+    clustered_data = run_val_model(model_name="FastText", model_epochs=100, dimres_method="pca", quotes=quotes,
                                    model_dim_size=150, db_params=[0.0002, 2], drawplots=0)
 
     print("Loss Rate:{} %".format(calc_val_loss(quotes, clustered_data)))

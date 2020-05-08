@@ -179,10 +179,12 @@ def run_hyp_model(model_name="FastText", pretrained_model=None, model_epochs=200
         exit()
 
     if dimres_method is not None:
+        # Calculate epsilon as percentage of range of dimres data
         dimres_method.lower()
         if dimres_method == "pca":
             data_pca = func_pca(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1),
                                 drawplot=drawplots, n_components=3)
+            
             data_clustered = func_dbscan(data=data_pca[:, [-3, -2, -1]],
                                              eps=db_params[0],
                                              min_samples=db_params[1],

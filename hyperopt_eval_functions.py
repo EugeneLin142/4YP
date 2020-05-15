@@ -107,8 +107,10 @@ def generate_poisoned_filepaths(filepaths, clustered_data):
 
     return new_fp_df
 
+import pickle
 
-def run_hyp_model(model_name="FastText", pretrained_model=None, model_epochs=200, filepaths=None, new_filepaths=None,
+
+def run_hyp_model(model_name="FastText", model_subname=None, pretrained_model=None, model_epochs=200, filepaths=None, new_filepaths=None,
                   encoded_fps=None, dimres_method=None, model_dim_size=300, db_params=None, drawplots=0):
     """
     db_params = [eps, min_samples]
@@ -117,13 +119,19 @@ def run_hyp_model(model_name="FastText", pretrained_model=None, model_epochs=200
     if filepaths is not None:
         pass
     else:
-        # Import filepaths
-        datadigits, filepaths_raw = import_ima()
-        print("Number of filepaths before filtering:{}".format(len(filepaths_raw)))
+        try:
+            datadigits = pickle.load(open("datadigits.p", "rb"))
+            filepaths = pickle.load(open("filepaths.p", "rb"))
+        except:
+            # Import filepaths
+            datadigits, filepaths_raw = import_ima()
+            print("Number of filepaths before filtering:{}".format(len(filepaths_raw)))
 
-        # Remove all filepaths involved in TP quotes
-        datadigits, filepaths = process_filepaths(datadigits, filepaths_raw)
-        print("Number of filepaths after filtering:{}".format(len(filepaths)))
+            # Remove all filepaths involved in TP quotes
+            datadigits, filepaths = process_filepaths(datadigits, filepaths_raw)
+            print("Number of filepaths after filtering:{}".format(len(filepaths)))
+            pickle.dump(datadigits, open("datadigits.p", "wb"))
+            pickle.dump(filepaths, open("filepaths.p", "wb"))
 
     model_name = model_name.lower()
     if pretrained_model == None:
@@ -131,10 +139,18 @@ def run_hyp_model(model_name="FastText", pretrained_model=None, model_epochs=200
         if new_filepaths is not None:
             filepaths.append(new_filepaths)
         if model_name == "fasttext":
-            model, encoded_fps = do_fasttext(filepaths, dim_size=model_dim_size,
+            if model_subname == "BOW":
+                sg = 0
+            if model_subname == "SG":
+                sg = 1
+            model, encoded_fps = do_fasttext(filepaths, dim_size=model_dim_size, sg=sg,
                                              epochs=model_epochs)
         elif model_name == "doc2vec":
-            model, encoded_fps = do_doc2vec(filepaths, dim_size=model_dim_size,
+            if model_subname == "BOW":
+                dm = 1
+            if model_subname == "SG":
+                dm = 0
+            model, encoded_fps = do_doc2vec(filepaths, dim_size=model_dim_size, dm=dm,
                                             epochs=model_epochs)
         elif encoded_fps == None:
             print("Please provide a model name ('FastText' or 'Doc2Vec') for evaluation, or pre-encoded filepaths.")
@@ -182,13 +198,15 @@ def run_hyp_model(model_name="FastText", pretrained_model=None, model_epochs=200
         # Calculate epsilon as percentage of range of dimres data
         dimres_method.lower()
         if dimres_method == "pca":
-            data_pca = func_pca(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1),
-                                drawplot=drawplots, n_components=3)
-            
-            data_clustered = func_dbscan(data=data_pca[:, [-3, -2, -1]],
-                                             eps=db_params[0],
-                                             min_samples=db_params[1],
-                                             drawplot=drawplots)
+            pca_num = 3
+            data_pca, var_rat = func_pca(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1),
+                                drawplot=drawplots, n_components=pca_num)
+            pca_num = -1 * pca_num
+            hdb_range = np.arange(pca_num, 0)
+            data_clustered = func_hdbscan(data=data_pca[:, hdb_range],
+                                          min_cluster_size=db_params[1], min_samples=db_params[0],
+                                         #eps=(var_rat[0] * db_params[0]), min_samples=db_params[1],
+                                          drawplot=drawplots)
             feat_cols = []
             feat_cols.append("filepaths")
             # explore_cluster(datanp=filepaths,
@@ -201,10 +219,10 @@ def run_hyp_model(model_name="FastText", pretrained_model=None, model_epochs=200
         elif dimres_method == "t-sne":
             data_tsne = func_tsne(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1), drawplot=drawplots,
                                 n_components=3)
-            data_clustered = func_dbscan(data=data_tsne[:, [-3, -2, -1]],
-                                             eps=db_params[0],
-                                             min_samples=db_params[1],
-                                             drawplot=drawplots)
+            data_clustered = func_hdbscan(data=data_tsne[:, [-3, -2, -1]],
+                                          min_cluster_size=db_params[1], min_samples=db_params[0],
+                                         #eps=(data_tsne.max()-data_tsne.min())*db_params[0], min_samples=db_params[1],
+                                          drawplot=drawplots)
             feat_cols = []
             feat_cols.append("filepaths")
             # explore_cluster(datanp=filepaths,
@@ -217,10 +235,10 @@ def run_hyp_model(model_name="FastText", pretrained_model=None, model_epochs=200
         elif dimres_method == "umap":
             data_umap = func_umap(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1), drawplot=drawplots,
                                 n_components=3)
-            data_clustered = func_dbscan(data=data_umap[:, [-3, -2, -1]],
-                                             eps=db_params[0],
-                                             min_samples=db_params[1],
-                                             drawplot=drawplots)
+            data_clustered = func_hdbscan(data=data_umap[:, [-3, -2, -1]],
+                                          min_cluster_size=db_params[1], min_samples=db_params[0],
+                                          #eps=(data_umap.max()-data_umap.min())*db_params[0], min_samples=db_params[1],
+                                          drawplot=drawplots)
             feat_cols = []
             feat_cols.append("filepaths")
             # explore_cluster(datanp=filepaths,

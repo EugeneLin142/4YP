@@ -5,13 +5,15 @@ import csv
 import time
 import pickle
 
-def eval_model(params, drawplots=0, model=None): # modified version of eval_model used for hyperopt
+def eval_model(params, drawplots=1, model=None): # modified version of eval_model used for hyperopt
     np.random.seed(123)
-    model_name = "FastText"
-    dimres_method = "pca" # str(params['dimres_method'])
+    model_name = str(params['model_name'])
+    model_subname = str(params['model_subname'])
+    dimres_method = str(params['dimres_method'])
     model_epochs = int(params['model_epochs'])
     model_dim_size = int(params['model_dim_size'])
-    db_params = [params['db_eps'], 1]
+    db_params = [params['min_samples'], params['min_samples']]
+    #db_params = [params['db_eps'], 1]
     time_start = time.time()
 
     global ITERATION
@@ -22,7 +24,7 @@ def eval_model(params, drawplots=0, model=None): # modified version of eval_mode
         model_flag = 0
     else:
         pass
-    clustered_data, model, original_filepaths, original_encoded_filepaths = run_hyp_model(model_name=model_name, model_epochs=model_epochs, dimres_method=dimres_method,
+    clustered_data, model, original_filepaths, original_encoded_filepaths = run_hyp_model(model_name=model_name, model_subname=model_subname, model_epochs=model_epochs, dimres_method=dimres_method,
                                                                                           model_dim_size=model_dim_size, db_params=db_params, drawplots=drawplots, pretrained_model=model)
     if model_flag == 0:
         print("\nTime taken to build new model and find clusters: {} seconds".format(time.time()-time_start))
@@ -39,7 +41,7 @@ def eval_model(params, drawplots=0, model=None): # modified version of eval_mode
 
     time_start_2 = time.time()
     print("\nFinding new clusters...\n")
-    new_clustered_data, model, combined_filepaths, new_encoded_filepaths = run_hyp_model(model_name=model_name, model_epochs=model_epochs, pretrained_model=model,
+    new_clustered_data, model, combined_filepaths, new_encoded_filepaths = run_hyp_model(model_name=model_name, model_subname=model_subname, model_epochs=model_epochs, pretrained_model=model,
                                                                                          model_dim_size=model_dim_size, filepaths=original_filepaths, encoded_fps=original_encoded_filepaths,
                                                                                          new_filepaths=new_fp_df["new filepath"].tolist(), dimres_method=dimres_method,
                                                                                          db_params=db_params, drawplots=drawplots)
@@ -65,12 +67,10 @@ def eval_model(params, drawplots=0, model=None): # modified version of eval_mode
     writer = csv.writer(of_connection)
     writer.writerow([loss, params, ITERATION, run_time])
 
-    global tpe_trials
-    pickle.dump(tpe_trials, open("tpe_trials.p", "wb"))
 
     return {'loss': loss, 'params': params, 'iteration': ITERATION,
             'train_time': run_time, 'status': STATUS_OK}  #, new_clustered_data, new_fp_df, model
-tpe_trials = Trials()
+valid_trials = Trials()
 ITERATION = 0
 out_file = "eval_trials.csv"
 of_connection = open(out_file, 'w')
@@ -80,10 +80,12 @@ writer = csv.writer(of_connection)
 writer.writerow(['loss', 'params', 'iteration', 'train_time'])
 of_connection.close()
 space = {
-    'model_name': "FastText",
-    'dimres_method': "pca",
-    'model_epochs': 50,
+    'model_name': "Doc2Vec",
+    'dimres_method': "umap",
+    'model_subname': 'SG',
+    'model_epochs': 100,
     'model_dim_size': 100,
-    'db_eps': 0.34
+    # 'db_eps': 0.4,
+    'min_samples': 3
 }
 eval_model(params=space)

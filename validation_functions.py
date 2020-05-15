@@ -4,6 +4,10 @@ from random import seed
 from random import randint
 from random import shuffle
 from hyperopt_eval_functions import *
+from hyperopt import hp, tpe, Trials, fmin, STATUS_OK
+import time
+import csv
+import pickle
 import nltk
 import time
 
@@ -190,12 +194,12 @@ def run_val_model(quotes, model_name="FastText", pretrained_model=None, model_ep
     if dimres_method is not None:
         dimres_method.lower()
         if dimres_method == "pca":
-            data_pca = func_pca(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1),
+            data_pca, var_rat = func_pca(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1),
                                 drawplot=drawplots, n_components=3)
-            data_clustered = func_dbscan(data=data_pca[:, [-3, -2, -1]],
-                                             eps=db_params[0],
-                                             min_samples=db_params[1],
-                                             drawplot=drawplots)
+            data_clustered = func_hdbscan(data=data_pca[:, [-3, -2, -1]],
+                                         min_cluster_size=db_params[1], min_samples=db_params[0],
+                                         #eps=(var_rat[0] * db_params[0]), min_samples=db_params[1],
+                                         drawplot=drawplots)
             feat_cols = []
             feat_cols.append("filepaths")
             # explore_cluster(datanp=filepaths,
@@ -259,7 +263,8 @@ def calc_val_loss(quotes, clustered_data):
     return loss_percentage
 
 
-def main():
+def validation(params):
+    time_start = time.time()
     # Import filepaths
     datacode, filepaths_raw = import_ima()
     print("Number of quotes before filtering:{}".format(len(filepaths_raw)))
@@ -278,12 +283,51 @@ def main():
 
     # Choose next hyperparameters from hyperopt eval results
 
-    clustered_data = run_val_model(model_name="FastText", model_epochs=100, dimres_method="pca", quotes=quotes,
-                                   model_dim_size=150, db_params=[0.0002, 2], drawplots=0)
+    clustered_data = run_val_model(model_name="FastText", model_epochs=int(params['model_epochs']), dimres_method="pca", quotes=quotes,
+                                   model_dim_size=int(params['model_dim_size']), db_params=[int(params['min_cluster_size']), int(params['min_samples'])], drawplots=0)
 
-    print("Loss Rate:{} %".format(calc_val_loss(quotes, clustered_data)))
-    input("pause")
+    loss = calc_val_loss(quotes, clustered_data)
+    print("Loss Rate:{} %".format(loss))
+    run_time = time.time() - time_start
+
+    # Write to the csv file ('a' means append)
+    of_connection = open(out_file, 'a')
+    writer = csv.writer(of_connection)
+    writer.writerow([loss, params, ITERATION, run_time])
+
+    global valid_trials
+    pickle.dump(valid_trials, open("valid_trials.p", "wb"))
+
+    return {'loss': loss, 'params': params, 'iteration': ITERATION,
+            'train_time': run_time, 'status': STATUS_OK}
 
 
-if __name__ == "__main__":
-    main()
+space = {
+    'model_epochs': 180,
+    'model_dim_size': hp.quniform('model_dim_size', 80, 400, 10),
+    'min_cluster_size': 3,
+    'min_samples': 3
+}
+
+valid_trials = Trials()
+# use this line instead if you're continuing
+# tpe_trials = pickle.load(open("tpe_trials.p", "rb"))
+
+ITERATION = 0
+
+out_file = "valid_trials.csv"
+of_connection = open(out_file, 'w')
+writer = csv.writer(of_connection)
+
+# Write the headers to the file
+writer.writerow(['loss', 'params', 'iteration', 'train_time'])
+of_connection.close()
+
+
+# Run evals with the tpe algorithm
+tpe_best = fmin(fn=validation, space=space,
+                algo=tpe.suggest, trials=valid_trials,
+                max_evals=100, rstate=np.random.RandomState(50))
+
+print(tpe_best)
+

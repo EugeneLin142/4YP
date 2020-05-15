@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 import os
 import plotly.express as px
+import plotly.graph_objects as go
 from mpl_toolkits.mplot3d import Axes3D as ax
 
 from sklearn.model_selection import train_test_split
@@ -391,7 +392,7 @@ def func_pca(datanp, feat_cols, drawplot, n_components):
         plt.show()
 
     datanp = df.to_numpy()
-    return datanp
+    return datanp, pca.explained_variance_ratio_
 
 
 from sklearn.manifold import TSNE
@@ -600,109 +601,13 @@ from IPython.core.display import display, HTML
 
 import hdbscan
 
-def func_hdbscan(data, min_samples, drawplot):
+def func_hdbscan(data, min_cluster_size, drawplot, min_samples):
     # Choose eps as percentage of maximum range in data
 
     data = data
     if data.shape[1] == 2:
-        clusterer = hdbscan.HDBSCAN(min_cluster_size=min_samples)
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, min_samples=min_samples)
         labels = clusterer.fit_predict(data)
-        # db = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
-        # labels = db.labels_
-
-        # Number of clusters in labels, ignoring noise if present.
-        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-        n_noise_ = list(labels).count(-1)
-
-        print('Estimated number of clusters: %d' % n_clusters_)
-        print('Estimated number of noise points: %d' % n_noise_)
-        # print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels_true, labels))
-        # print("Completeness: %0.3f" % metrics.completeness_score(labels_true, labels))
-        # print("V-measure: %0.3f" % metrics.v_measure_score(labels_true, labels))
-        # print("Adjusted Rand Index: %0.3f"
-        #       % metrics.adjusted_rand_score(labels_true, labels))
-        # print("Adjusted Mutual Information: %0.3f"
-        #       % metrics.adjusted_mutual_info_score(labels_true, labels))
-        # print("Silhouette Coefficient: %0.3f"
-        #       % metrics.silhouette_score(X, labels))
-
-        df = pd.DataFrame(data=data, columns=["db-1", "db-2"])
-        df["clusters"] = labels
-        data = df.to_numpy()
-
-        if drawplot == 1:
-            plot_it(n_components=data.shape[1], pd_or_np="np",
-                    last_process="DBSCAN", db_core_samples_mask=core_samples_mask,
-                    db_labels=labels, db_n_clusters=n_clusters_)
-    elif data.shape[1] == 3:
-
-        # fig = plt.figure()
-        # ax = Axes3D(fig)
-        # ax.scatter(data[:, 0], data[:, 1], data[:, 2], s=300)
-        # ax.view_init(azim=200)
-        # plt.show()
-
-        # db = DBSCAN(eps=eps, min_samples=min_samples)
-        # db.fit_predict(data)
-        # pred = db.fit_predict(data)
-        # if drawplot == 1:
-        #     fig = plt.figure()
-        #     ax = Axes3D(fig)
-        #     ax.scatter(data[:, 0], data[:, 1], data[:, 2], c=db.labels_, s=300)
-        #     ax.view_init(azim=200)
-        #     plt.show()
-
-        db = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
-        core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-        core_samples_mask[db.core_sample_indices_] = True
-        labels = db.labels_
-
-        # Number of clusters in labels, ignoring noise if present.
-        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-        n_noise_ = list(labels).count(-1)
-        ########################
-        if drawplot == 1:
-            fig = plt.figure()
-            ax = Axes3D(fig)
-            ax.scatter(data[:, 0], data[:, 1], data[:, 2], c=db.labels_, s=5)
-            ax.view_init(azim=200)
-            plt.title('Estimated number of clusters: %d' % n_clusters_)
-            plt.show()
-            # plt.figure(figsize=(16, 10))  # only here for jupyter notebook, otherwise creates empty plots
-            unique_labels = set(labels)
-            # colors = [plt.cm.Spectral(each)
-            #             for each in np.linspace(0, 1, len(unique_labels))]
-            # for k, col in zip(unique_labels, colors):
-            #     if k == -1:
-            #         # Black used for noise.
-            #         col = [0, 0, 0, 1]
-            #
-            #     class_member_mask = (labels == k)
-            #
-            #     xyz = data[class_member_mask & core_samples_mask]
-            #     plt.plot(xyz[:, 0], xyz[:, 1], xyz[:, 2], 'o', markerfacecolor=tuple(col),
-            #              markeredgecolor='k', markersize=14)
-            #
-            #     xyz = data[class_member_mask & ~core_samples_mask]
-            #     plt.plot(xyz[:, 0], xyz[:, 1], xyz[:, 2], 'o', markerfacecolor=tuple(col),
-            #              markeredgecolor='k', markersize=6)
-
-        ########################
-
-        print("number of cluster found: {}".format(len(set(db.labels_))))
-        print('cluster for each point: ', db.labels_)
-
-        labels = db.labels_
-        df = pd.DataFrame(data=data, columns=["db-1", "db-2", "db-3"])
-        df["clusters"] = labels
-        data = df.to_numpy()
-
-    elif data.shape[1] == 5:
-        # For naive clustering - using no relation between process and parent process names
-        db = DBSCAN(eps=eps, min_samples=min_samples).fit(data)
-        core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-        core_samples_mask[db.core_sample_indices_] = True
-        labels = db.labels_
 
         # Number of clusters in labels, ignoring noise if present.
         n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
@@ -711,29 +616,47 @@ def func_hdbscan(data, min_samples, drawplot):
         print('Estimated number of clusters: %d' % n_clusters_)
         print('Estimated number of noise points: %d' % n_noise_)
 
+        df = pd.DataFrame(data=data, columns=["hdb-1", "hdb-2"])
+        df["clusters"] = labels
+        data = df.to_numpy()
+
         if drawplot == 1:
-            df = pd.DataFrame(data=None)
-            df["pca-1"] = data[:, 0]
-            df["pca-2"] = data[:, 1]
-            df["pca-3"] = data[:, 2]
-            df["cluster"] = db.labels_
-            fig = px.scatter_3d(df, x='pca-1', y='pca-2', z='pca-3',
-                                color='cluster')
+            fig = px.scatter(df, x="hdb-1", y="hdb-2", color="clusters",
+                             )
+
             fig.show()
 
-            # matplotlib not working...
-            # fig = plt.figure()
-            # ax = Axes3D(fig)
-            # ax.scatter(data[:, 0], data[:, 1], data[:, 2]) #, c=db.labels_, s=5
-            # ax.view_init(azim=200)
-            # plt.title('Estimated number of clusters: %d' % n_clusters_)
-            # plt.show()
-    # print(data.shape)
-    # print(labels.shape)
+    elif data.shape[1] == 3:
 
-    # last column is labels
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=int(min_cluster_size))
+        labels = clusterer.fit_predict(data)
+
+        # Number of clusters in labels, ignoring noise if present.
+        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+        n_noise_ = list(labels).count(-1)
+        ########################
+        df = pd.DataFrame(data=data, columns=["dim-1", "dim-2", "dim-3"])
+        df["clusters"] = labels
+        print('Estimated number of clusters: %d' % n_clusters_)
+        print('Estimated number of noise points: %d' % n_noise_)
+        if drawplot == 1:
+            fig = px.scatter_3d(df, x='dim-1', y='dim-2', z='dim-3',
+                                color='clusters', size_max=1)
+            # fig = go.Figure()
+            # fig.add_trace(go.Scatter(x=df['dim-1'], y=df['dim-2'], z=df['dim-3'],
+            #                          mode='markers',
+            #                          marker=dict(size=5),
+            #                          ))
+            fig.show()
+
+
+        ########################
+
+        df = pd.DataFrame(data=data, columns=["hdb-1", "hdb-2", "hdb-3"])
+        df["clusters"] = labels
+        data = df.to_numpy()
+
     return data
-
 
 from IPython.core.display import display, HTML
 

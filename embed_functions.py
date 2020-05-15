@@ -117,7 +117,8 @@ def do_word2vec(data, epochs):
 
     return model
 
-def do_doc2vec(data, epochs, dim_size):
+def do_doc2vec(data, epochs, dim_size, dm=1):
+    print("building {}".format(dim_size), "dimensional Doc2Vec model for {} epochs...".format(epochs))
     # Create the tagged document needed for Doc2Vec
     def create_tagged_document(list_of_list_of_words):
         for i, list_of_words in enumerate(list_of_list_of_words):
@@ -126,7 +127,7 @@ def do_doc2vec(data, epochs, dim_size):
     train_data = list(create_tagged_document(data))
 
     # Init the Doc2Vec model
-    model = gensim.models.doc2vec.Doc2Vec(vector_size=dim_size, min_count=1,
+    model = gensim.models.doc2vec.Doc2Vec(vector_size=dim_size, min_count=1, dm=dm,
                                           workers=cpu_count(), window=2,
                                           epochs=epochs
                                           )
@@ -156,7 +157,7 @@ def do_doc2vec(data, epochs, dim_size):
     for i in range(0, len(data)):
         a.append(model.docvecs[i])
 
-    a = np.asarray(a, dtype=np.float32)
+    # a = np.asarray(a, dtype=np.float32)
 
     return model, a
 
@@ -175,10 +176,10 @@ def process2lev(data): #likely useless really
 
 from gensim.models import FastText
 
-def do_fasttext(data, dim_size=300, epochs=200):
+def do_fasttext(data, sg=0, dim_size=300, epochs=200):
     # Init Model
     print("building {}".format(dim_size), "dimensional FastText model for {} epochs...".format(epochs))
-    model = FastText(size=dim_size, window=3, min_count=1)
+    model = FastText(size=dim_size, sg=sg, window=3, min_count=1)
 
     # Build Vocab
     model.build_vocab(sentences=data)

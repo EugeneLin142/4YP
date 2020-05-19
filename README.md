@@ -12,6 +12,12 @@ To do this, access hyperopt_eval.py for the first loss function (path embedding 
 
 To configure the search space, alter the 'space' variable in the main function.
 
+For hyperopt_eval.py, ALL of the IMA quotes are pulled from the directory ./ima/
+
+For validation_functions.py , please specify the 'windowsize' variable in the validation function. For this hyperparameter search, contiguous sets of IMA quotes are pulled from the directory ./ima/archive/
+
+IMA quotes are NOT included in this repo for NDA reasons.
+
 
 
 

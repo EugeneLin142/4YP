@@ -198,7 +198,7 @@ def run_hyp_model(model_name="FastText", model_subname=None, pretrained_model=No
         # Calculate epsilon as percentage of range of dimres data
         dimres_method.lower()
         if dimres_method == "pca":
-            pca_num = 3
+            pca_num = 2
             data_pca, var_rat = func_pca(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1),
                                 drawplot=drawplots, n_components=pca_num)
             pca_num = -1 * pca_num
@@ -218,8 +218,8 @@ def run_hyp_model(model_name="FastText", model_subname=None, pretrained_model=No
 
         elif dimres_method == "t-sne":
             data_tsne = func_tsne(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1), drawplot=drawplots,
-                                n_components=3)
-            data_clustered = func_hdbscan(data=data_tsne[:, [-3, -2, -1]],
+                                n_components=2)
+            data_clustered = func_hdbscan(data=data_tsne[:, [-2, -1]],
                                           min_cluster_size=db_params[1], min_samples=db_params[0],
                                          #eps=(data_tsne.max()-data_tsne.min())*db_params[0], min_samples=db_params[1],
                                           drawplot=drawplots)
@@ -234,8 +234,8 @@ def run_hyp_model(model_name="FastText", model_subname=None, pretrained_model=No
 
         elif dimres_method == "umap":
             data_umap = func_umap(datanp=encoded_fps, feat_cols=range(1, model_dim_size + 1), drawplot=drawplots,
-                                n_components=3)
-            data_clustered = func_hdbscan(data=data_umap[:, [-3, -2, -1]],
+                                n_components=2)
+            data_clustered = func_hdbscan(data=data_umap[:, [-2, -1]],
                                           min_cluster_size=db_params[1], min_samples=db_params[0],
                                           #eps=(data_umap.max()-data_umap.min())*db_params[0], min_samples=db_params[1],
                                           drawplot=drawplots)

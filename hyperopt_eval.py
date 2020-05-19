@@ -80,8 +80,8 @@ space = {
     'model_name': hp.choice('model_name', ['Doc2Vec']),
     'model_subname': hp.choice('model_subname', ['SG']),
     'dimres_method': hp.choice('dimres_method', ["pca"]),
-    'model_epochs': 100, #hp.quniform('model_epochs', 80, 200, 10),
-    'model_dim_size': hp.quniform('model_dim_size', 80, 200, 10),
+    'model_epochs': 180, #hp.quniform('model_epochs', 80, 200, 10),
+    'model_dim_size': hp.quniform('model_dim_size', 80, 400, 10),
     #'db_eps': hp.quniform('db_eps', 0.2, 0.4, 0.05)
     'min_cluster_size': 3, #hp.quniform('min_cluster_size', 2, 7, 1),
     'min_samples': 3 #hp.quniform('min_samples', 2,4,1)

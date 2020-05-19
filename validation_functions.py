@@ -10,7 +10,9 @@ import csv
 import pickle
 import nltk
 import time
-
+from os import listdir
+from os.path import isfile, join
+import random
 # Loss is defined as the number of randomised fake 'suspicious' quotes we fail to detect
 # we need a function to create a bunch of fake quotes
 # another function to add the quotes to the real dataset, adding a new 'label' column to make them distinct
@@ -262,11 +264,65 @@ def calc_val_loss(quotes, clustered_data):
 
     return loss_percentage
 
+def import_ima_window(windowsize=3):
+    data = None
+    filenamelist = []
+    filelist = [f for f in listdir('./ima/archive/') if isfile(join('./ima/archive/', f))]
+
+    filename = random.choice(filelist[0:-3])
+
+    for i in range(0, windowsize):
+        filenamelist.append(filename)
+        filename = filelist[filelist.index(filename)+1]
+
+    for filename in filenamelist:
+        filename = './ima/archive/' + filename
+
+        # print(os.path.join(directory, filename))
+        print(filename)
+        if data is None:
+            data = np.genfromtxt(filename,
+                   dtype='unicode',
+                   delimiter=' ',
+                   usecols=(5, 7, 8, 9, 10, 11, 12))
+            filepaths = np.genfromtxt(filename,
+                                      dtype='unicode',
+                                      delimiter=' ',
+                                      usecols=(4))
+        else:
+            try:
+                datanew = np.genfromtxt(filename,
+                                        dtype='unicode',
+                                        delimiter=' ',
+                                        usecols=(5, 7, 8, 9, 10, 11, 12))
+                filepathsnew = np.genfromtxt(filename,
+                                             dtype='unicode',
+                                             delimiter=' ',
+                                             usecols=(4))
+            except:
+                print(filename, " is likely not encoded properly, (search code WALNUT) skipping this quote...")
+                pass
+
+            try:
+                data = np.concatenate((data, datanew), axis=0)
+                filepaths = np.concatenate((filepaths, filepathsnew), axis=0)
+            except:
+                print(filename, " is likely not encoded properly, (search code BERRY) skipping this quote...")
+                pass
+
+
+    if data is None:
+        print("No IMA measurements found, please put .dat or .csv files into ./ima/")
+    else:
+        print("{} day window from ./ima/ imported successfully.".format(len(filenamelist)))
+
+    return data, filepaths, filenamelist
+
 
 def validation(params):
     time_start = time.time()
     # Import filepaths
-    datacode, filepaths_raw = import_ima()
+    datacode, filepaths_raw, filenamelist = import_ima_window(windowsize=1)
     print("Number of quotes before filtering:{}".format(len(filepaths_raw)))
 
     # Remove all filepaths involved in TP quotes
@@ -283,7 +339,7 @@ def validation(params):
 
     # Choose next hyperparameters from hyperopt eval results
 
-    clustered_data = run_val_model(model_name="FastText", model_epochs=int(params['model_epochs']), dimres_method="pca", quotes=quotes,
+    clustered_data = run_val_model(model_name="Doc2Vec", model_epochs=int(params['model_epochs']), dimres_method="pca", quotes=quotes,
                                    model_dim_size=int(params['model_dim_size']), db_params=[int(params['min_cluster_size']), int(params['min_samples'])], drawplots=0)
 
     loss = calc_val_loss(quotes, clustered_data)
@@ -299,12 +355,12 @@ def validation(params):
     pickle.dump(valid_trials, open("valid_trials.p", "wb"))
 
     return {'loss': loss, 'params': params, 'iteration': ITERATION,
-            'train_time': run_time, 'status': STATUS_OK}
+            'train_time': run_time, 'files_chosen': filenamelist, 'status': STATUS_OK}
 
 
 space = {
-    'model_epochs': 180,
-    'model_dim_size': hp.quniform('model_dim_size', 80, 400, 10),
+    'model_epochs': 100,
+    'model_dim_size': 80, #hp.quniform('model_dim_size', 60, 100, 5),
     'min_cluster_size': 3,
     'min_samples': 3
 }

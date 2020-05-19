@@ -83,8 +83,8 @@ space = {
     'model_name': "Doc2Vec",
     'dimres_method': "umap",
     'model_subname': 'SG',
-    'model_epochs': 100,
-    'model_dim_size': 100,
+    'model_epochs': 180,
+    'model_dim_size': 160,
     # 'db_eps': 0.4,
     'min_samples': 3
 }

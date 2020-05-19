@@ -148,22 +148,7 @@ def import_ima():
                         # for some reason some quotes are read in as 0-dimensional
                         # I believe because the data in the quotes aren't encoded properly
                         # and numpy is taking them as bytes literal - i will ignore for now...
-                    # for array in datanew: # convert each row to 8-dimensions & concatenate 1 by 1
-                    #     # print("array0", array[0].decode('utf-8'))
-                    #     rowlabel = np.array([[array[0].decode('utf-8')]])
-                    #     row = np.array([[array[1]], [array[2]],
-                    #                     [array[3]], [array[4]], [array[5]],
-                    #                     [array[6]], [array[7]] ])
-                    #     print(rowlabel.shape, row.astype(int).shape)
-                    #     row = np.concatenate((rowlabel, row.astype(int)), axis=0)
-                    #     print("before,", row)
-                    #     row = row.reshape(row.shape[1], row.shape[0])
-                    #     print("after,", row)
-                    #     print("check if match...", data[0])
-                    #     input("check now")
-                        # print(data.shape)
-                        # print(row.shape)
-                        ###
+
                         # above 'print' comments to confirm reshape works properly
                         # data = np.concatenate((data, row), axis=0)
 
@@ -369,7 +354,7 @@ def func_pca(datanp, feat_cols, drawplot, n_components):
     pca_result = pca.fit_transform(df.values)
     df['pca-one'] = pca_result[:, 0]
     df['pca-two'] = pca_result[:, 1]
-    df['pca-three'] = pca_result[:, 2]
+#    df['pca-three'] = pca_result[:, 2]
 
     # display the variation per PC.
     # unfortunately it seems it's not very representative of the variation,
